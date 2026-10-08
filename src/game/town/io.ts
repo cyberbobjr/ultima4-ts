@@ -1,0 +1,182 @@
+// Console text output and keyboard prompts reproducing the AVATAR.EXE primitives used by the
+// conversations and vendors (print 1000:0B38, putchar 1000:0C9F, newline 1000:2230, line input
+// 1000:1445, number input 1000:169C, Y/N 1000:162F, letter choice 1000:11F9, member choice 1000:1287).
+import type { Game } from "../game";
+import { CON_W } from "../console";
+
+/** Current column in the message area. */
+function col(g: Game): number {
+  const l = g.con.lines;
+  return l[l.length - 1].length;
+}
+
+/** 1000:2230: carriage return + scroll. */
+export function nl(g: Game) { g.con.newline(); }
+
+/** 1000:0C9F: one character; wraps at column 16, a space at the end of a line is dropped. */
+export function putc(g: Game, ch: string) {
+  if (ch === "\b") { g.con.backspace(); return; }
+  if (ch === "\n") { nl(g); return; }
+  if (ch === " ") { if (col(g) >= CON_W) return; }
+  else if (col(g) >= CON_W) nl(g);
+  g.con.print(ch === "\x12" ? " " : ch); // glyph 0x12 of CHARSET.EGA is blank
+}
+
+/** 1000:0C03 with width 1: a decimal number. */
+export function putNum(g: Game, n: number) { for (const c of String(n)) putc(g, c); }
+
+/** Waits for a key after a full screen of text (1000:0B38 counts 12 line breaks). */
+async function pageWait(g: Game) {
+  g.input.clear();
+  await g.getKey();
+}
+
+/**
+ * 1000:0B38: prints a string with word wrap (a word that does not fit on the current line starts a
+ * new one; a word = run of characters up to a space, newline or end, control characters included).
+ * After 12 line breaks it waits for a key. Several strings = several calls (one page count each).
+ */
+export async function say(g: Game, ...texts: string[]) {
+  for (const t of texts) await say1(g, t);
+}
+
+async function say1(g: Game, text: string) {
+  let left = 0, lines = 0;
+  for (let i = 0; i < text.length; i++) {
+    const zero = left === 0;
+    left--;
+    if (zero) {
+      left = 0;
+      while (i + left < text.length && text[i + left] !== "\n" && text[i + left] !== " ") left++;
+      if (left + col(g) > CON_W && col(g) !== 0) {
+        if (lines++ === 12) { await pageWait(g); lines = 0; }
+        nl(g);
+      }
+    }
+    if (text[i] === "\n" && lines++ === 12) { await pageWait(g); lines = 0; }
+    putc(g, text[i]);
+  }
+}
+
+/** Printing without word wrap (Lord British's answers, 1000:E3D2): pauses on the 13th line break. */
+export async function sayRaw(g: Game, text: string) {
+  let lines = 0;
+  for (const ch of text) {
+    if (ch === "\n" && lines++ === 12) { await pause(g); lines = 0; }
+    putc(g, ch);
+  }
+}
+
+/** 1000:E1FC: flush the keyboard, wait 10 seconds or until a key is pressed. */
+export async function pause(g: Game, seconds = 10) {
+  g.input.clear();
+  await g.input.next(seconds * 1000);
+}
+
+/** 1000:16CD with no key check: fixed delay. */
+export function delay(seconds: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, seconds * 1000));
+}
+
+/** 1000:17F4: waits for a key (flushes pending keys first when `flush`, as 1000:1804 does). */
+export async function waitKey(g: Game, flush = false): Promise<string> {
+  if (flush) g.input.clear();
+  return g.getKey();
+}
+
+/** Error beep 1000:1D47(1). */
+function beep() { /* sound not implemented */ }
+
+/** Key name -> character code as the BIOS would return it (low byte). */
+function keyCode(k: string): number {
+  if (k === "Enter") return 0x0d;
+  if (k === "Escape") return 0x1b;
+  if (k === "Backspace") return 0x08;
+  return k.length === 1 ? k.charCodeAt(0) & 0x7f : 0;
+}
+
+/**
+ * 1000:1445: line input of at most `size - 1` characters, echoed; leading and trailing blanks are
+ * removed. No newline is printed (callers do it).
+ */
+export async function readLine(g: Game, size: number): Promise<string> {
+  let s = "";
+  for (;;) {
+    const k = await g.getKey();
+    if (k === "Enter") break;
+    if (k === "Backspace" || k === "ArrowLeft") {
+      if (s) { s = s.slice(0, -1); g.con.backspace(); } else beep();
+      continue;
+    }
+    const c = keyCode(k);
+    if (k.length === 1 && s.length !== size - 1 && c > 0x1f && c < 0x80) { s += k; putc(g, k); } else beep();
+  }
+  return s.trim();
+}
+
+/** C atoi() as used by 1000:169C. */
+function atoi(s: string): number {
+  const m = /^\s*([+-]?\d+)/.exec(s);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
+/** 1000:169C: number of up to `digits` characters, then a newline. Empty input = 0. */
+export async function readNumber(g: Game, digits: number): Promise<number> {
+  const s = await readLine(g, digits + 1);
+  nl(g);
+  return s ? atoi(s) : 0;
+}
+
+/** 1000:162F: waits for Y, N, space, Esc or Enter; echoes Y/N; newline. Returns "Y", "N" or another char. */
+export async function askYN(g: Game): Promise<string> {
+  for (;;) {
+    let c = keyCode(await g.getKey());
+    if (c > 0x60 && c < 0x7b) c -= 0x20;
+    if (c === 0x4e || c === 0x59 || c === 0x20 || c === 0x1b || c === 0x0d) {
+      if (c === 0x4e || c === 0x59) putc(g, String.fromCharCode(c));
+      nl(g);
+      return String.fromCharCode(c);
+    }
+    beep();
+  }
+}
+
+/**
+ * 1000:11F9: prints `prompt`, reads one key (upper-cased, echoed) and repeats until it lies in
+ * [min, max]. Enter/space -> -1, Esc -> -2. Returns the character code.
+ */
+export async function askLetter(g: Game, max: string, min: string, prompt: string): Promise<number> {
+  let first = true;
+  for (;;) {
+    if (!first) beep();
+    first = false;
+    await say(g, prompt);
+    const k = await g.getKey();
+    if (k === "Enter" || k === " " || k === "Escape") { nl(g); return k === "Escape" ? -2 : -1; }
+    let c = keyCode(k);
+    if (c > 0x60 && c < 0x7b) c -= 0x20;
+    if (c > 0x20 && c < 0x7f) putc(g, String.fromCharCode(c));
+    nl(g);
+    if (c >= min.charCodeAt(0) && c <= max.charCodeAt(0)) return c;
+  }
+}
+
+/** 1000:1287: choose a party member. 0-based index, -1 none (Enter/Esc), -2 for "0". */
+export async function askMember(g: Game, prompt: string): Promise<number> {
+  const n = g.save.members;
+  if (n === 1) { await say(g, prompt); await say(g, "1\n"); return 0; }
+  const c = await askLetter(g, String.fromCharCode(0x30 + n), "0", prompt);
+  if (c === 0x30) return -2;
+  if (c < 0) return -1;
+  return c - 0x31;
+}
+
+/** 1000:EC39: case-insensitive compare of at most `n` characters, stopping at the end of either string. */
+export function strnieq(a: string, b: string, n: number): boolean {
+  for (let i = 0; i < n; i++) {
+    const x = (a[i] ?? "").toLowerCase(), y = (b[i] ?? "").toLowerCase();
+    if (x !== y) return false;
+    if (!x) return true;
+  }
+  return true;
+}
