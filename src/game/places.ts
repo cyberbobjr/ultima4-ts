@@ -87,7 +87,7 @@ export async function enterTown(g: Game, loc: LocationDef, level: number, at?: [
   g.map = town;
   g.save.location = loc.id;
   const [x, y] = at ?? townEntry(town);
-  g.px = x; g.py = y;
+  g.setPos(x, y);
   g.openedDoors = [];
 }
 

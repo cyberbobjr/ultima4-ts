@@ -302,7 +302,12 @@ export class Game {
   setPos(x: number, y: number) {
     if (this.map.kind === "world") { x &= 255; y &= 255; this.save.x = x; this.save.y = y; }
     this.px = x; this.py = y;
+    for (const l of this.moveListeners) l(this);
   }
+
+  private moveListeners = new Set<(g: Game) => void>();
+  /** Called after every position change (journal of discovered places, interface). Returns the unsubscribe. */
+  onMove(fn: (g: Game) => void): () => void { this.moveListeners.add(fn); return () => this.moveListeners.delete(fn); }
 
   // ---------------------------------------------------------------- drawing
 
