@@ -1,5 +1,6 @@
 // "Initiate New Game" of TITLE.EXE: name and sex (FUN_1000_3030), the story (FUN_1000_2883),
 // the gypsy's casting (FUN_1000_2c12) and the new PARTY.SAV (FUN_1000_2e04).
+import { random } from "../game/rng";
 import { decodeScreen } from "../formats/ega";
 import { decodeSave, type SaveGame } from "../formats/save";
 import { loadGameFile } from "../io/gamefs";
@@ -14,7 +15,7 @@ async function picture(name: string): Promise<Uint8Array> {
   return p;
 }
 
-const rnd8 = () => Math.floor(Math.random() * 8);
+const rnd8 = () => Math.floor(random() * 8);
 const isEsc = (k: { key: string }) => k.key === "Escape";
 
 export class NewGame {

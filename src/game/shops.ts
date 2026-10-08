@@ -1,7 +1,7 @@
 // Vendors reached by talking across a shop counter (dispatcher 1000:A686, handlers DS:0x2D54),
 // Hawkwind, and the karma helpers shared with the conversations.
 import type { Game } from "./game";
-import { rand } from "./game";
+import { rand8 } from "./rng";
 import type { TownMap } from "./maps";
 import { T } from "./tiles";
 import { loadArena } from "./arenas";
@@ -19,7 +19,6 @@ type Player = Game["save"]["players"][number];
 
 export const enum Virtue { Honesty, Compassion, Valor, Justice, Sacrifice, Honor, Spirituality, Humility }
 
-const rand8 = () => rand(256);
 
 // ---------------------------------------------------------------- karma
 

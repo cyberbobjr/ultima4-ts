@@ -39,7 +39,7 @@ const HYTHLOTH = 23;
 /** Same input wait as the overworld loop (FUN_1000_16cd(0x19,1)). */
 const IDLE_MS = 8000;
 
-const rnd = () => Math.floor(Math.random() * 256);
+import { rand8 as rnd } from "./rng";
 /** Sign of a random signed byte (FUN_1000_4fd7 on FUN_1000_1771). */
 const rndSign = () => { const v = (rnd() << 24) >> 24; return v < 0 ? -1 : v > 0 ? 1 : 0; };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

@@ -28,7 +28,8 @@ export interface CombatResult {
   chest: boolean;
 }
 
-export const rand8 = () => Math.floor(Math.random() * 256);
+import { rand8 } from "./rng";
+export { rand8 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const WALKABLE = new Set(WALKABLE_TILES);

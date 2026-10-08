@@ -6,6 +6,7 @@ import { runIntro } from "./game/intro";
 import { installMagic } from "./game/magic";
 import { installItems } from "./game/items";
 import { installShrine } from "./game/shrine";
+import { setSeed } from "./game/rng";
 
 async function main() {
   const canvas = document.getElementById("screen") as HTMLCanvasElement;
@@ -27,7 +28,12 @@ async function main() {
     }
   };
   requestAnimationFrame(loop);
-  setInterval(() => game.tick(), 250);
+  // Dev/tests: ?seed=N seeds the RNG and hands the 250 ms clock to the test driver (window.__tick).
+  const seed = import.meta.env.DEV ? new URLSearchParams(location.search).get("seed") : null;
+  if (seed !== null) {
+    setSeed(Number(seed));
+    (window as unknown as { __tick: (n?: number) => void }).__tick = (n = 1) => { for (let i = 0; i < n; i++) game.tick(); };
+  } else setInterval(() => game.tick(), 250);
 
   // Dev shortcut for automated tests: ?skipintro starts directly from the original PARTY.SAV.
   const save = import.meta.env.DEV && location.search.includes("skipintro")

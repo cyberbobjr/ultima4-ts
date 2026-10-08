@@ -19,7 +19,8 @@ import { runDungeon } from "./dungeon";
 
 export const CLASS_NAMES = ["Mage", "Bard", "Fighter", "Druid", "Tinker", "Paladin", "Ranger", "Shepherd"];
 
-export function rand(n: number): number { return Math.floor(Math.random() * n); }
+import { rand } from "./rng";
+export { rand };
 
 /** Class maximum MP (1000:13B6), capped at 99. */
 export function maxMp(p: PlayerRecord): number {

@@ -1,6 +1,7 @@
 // Title screen of TITLE.EXE: opening animation (FUN_1000_068c), static redraw (FUN_1000_0bca),
 // the animated map vignette in the box (FUN_1000_034d/041a/05a4), the two creatures in the top
 // corners (FUN_1000_019a) and the menu (FUN_1000_0b45 / main loop in FUN_1000_0eaa).
+import { random } from "../game/rng";
 import { decodeScreen } from "../formats/ega";
 import { loadGameFile } from "../io/gamefs";
 import { OFF, type TitleData } from "./data";
@@ -69,7 +70,7 @@ export class Title {
   private animObjects() {
     for (let o = 0; o < 32; o++) {
       const t = this.objAnim[o];
-      const r = Math.random() * 256;
+      const r = random() * 256;
       if ((t >= 0x84 && t <= 0x8e) || (t >= 0x20 && t <= 0x2e) || (t >= 0x50 && t <= 0x5e)) {
         if (r < 0xc0) this.objTile[o] = ((this.objTile[o] & 1) | t) ^ 1;
       } else if (t < 0x90) {

@@ -2,7 +2,7 @@
 // giving to beggars (1000:A3A2), the yes/no question (1000:A163), and the vendor dispatch for NPCs
 // reached across a shop counter (1000:A6F3 -> 1000:A686).
 import type { Game } from "./game";
-import { rand } from "./game";
+import { rand8 } from "./rng";
 import type { Npc, TownMap } from "./maps";
 import { T } from "./tiles";
 import { JOIN_RULES } from "../data/tables";
@@ -10,7 +10,6 @@ import { LB, TALK } from "./town/strings";
 import { askYN, nl, pause, putc, putNum, readLine, readNumber, say, sayRaw, strnieq, waitKey } from "./town/io";
 import { karmaDec, karmaInc, markVirtue, runShop, virtueReady, Virtue } from "./shops";
 
-const rand8 = () => rand(256);
 const base = (tile: number) => tile & ~1;
 
 /**

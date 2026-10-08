@@ -1,5 +1,6 @@
 // A 320x200 indexed frame buffer emulating TITLE.EXE's EGA driver routines, plus keyboard helpers
 // with the original's "kbhit" semantics (a key pressed during an animation skips it and stays pending).
+import { random } from "../game/rng";
 import type { Assets } from "../render/assets";
 import type { Input, Key } from "../game/input";
 import type { Renderer } from "../render/renderer";
@@ -49,7 +50,7 @@ export class Screen {
         let any = 0;
         for (let b = 0; b < 8; b++) any |= src[s + b];
         if (!any) continue;
-        const m = masks[(step + Math.floor(Math.random() * 8)) * 2] ?? 0xff;
+        const m = masks[(step + Math.floor(random() * 8)) * 2] ?? 0xff;
         for (let b = 0; b < 8; b++) this.px[d + b] = m & (0x80 >> b) ? src[s + b] : 0;
       }
   }
