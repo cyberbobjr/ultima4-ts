@@ -1,15 +1,24 @@
 // Dungeon tables read from the unpacked AVATAR.EXE data segment (DS:x = image offset 0xF0D0 + x).
 // Arrays indexed by dungeon are in location order: Deceit, Despise, Destard, Wrong, Covetous, Shame,
-// Hythloth, Abyss (location ids 17..24).
+// Hythloth, Abyss (location ids 17..24). Texts come from the extracted catalog (src/data/text.ts).
+import { defineTexts, lazyList, ptrs } from "../data/text";
+
+const T = defineTexts("dungeon", {
+  /** arena file names DS:258E */
+  arenas: ptrs(0x258e, 7),
+  /** stone colors DS:0884 (DS:0862 + 2*location id) */
+  stones: ptrs(0x0884, 8),
+  /** altar room virtues: the first three Abyss altar words DS:0284 */
+  altars: ptrs(0x0284, 3),
+});
 
 export const FIRST_DUNGEON = 17;
 export const ABYSS = 24;
 
+/** DS:256E: arena index per cell type (words). */
+const ARENA_INDEX = [0, 1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 6, 0];
 /** Combat arena by cell type (high nibble): DS:256E -> file names DS:258E (FUN_1000_7d50). */
-export const DUNGEON_ARENAS = [
-  "DNG0.CON", "DNG1.CON", "DNG2.CON", "DNG3.CON", "DNG4.CON", "DNG0.CON", "DNG0.CON", "DNG0.CON",
-  "DNG0.CON", "DNG0.CON", "DNG0.CON", "DNG0.CON", "DNG5.CON", "DNG0.CON", "DNG6.CON", "DNG0.CON",
-];
+export const DUNGEON_ARENAS = lazyList(ARENA_INDEX.length, (i) => T.arenas[ARENA_INDEX[i]]);
 
 /** Magic orbs (FUN_1000_b795): damage x100 (DS:2E4C), STR/DEX/INT +5 flags (DS:2E5C/2E6C/2E7C). */
 export const ORB_DAMAGE = [2, 2, 2, 4, 4, 4, 6, 6];
@@ -20,10 +29,10 @@ export const ORB_INT = [5, 0, 0, 5, 0, 5, 5, 0];
 export const ORB_STAT_CAP = 50;
 
 /** Stone found on each dungeon's altar cell (DS:0862); Hythloth and the Abyss have none (FUN_1000_b93f). */
-export const STONE_NAMES = ["Blue", "Yellow", "Red", "Green", "Orange", "Purple", "White", "Black"];
+export const STONE_NAMES = lazyList(8, (i) => T.stones[i]);
 
 /** Altar rooms (room 15 outside the Abyss): virtue by party x when entering (FUN_1000_7ffd). */
-export const ALTAR_NAMES = ["Truth", "Love", "Courage"];
+export const ALTAR_NAMES = lazyList(3, (i) => T.altars[i]);
 /** Dungeon reached when leaving altar room `a` heading N/E/S/W: DS:261A[a*4 + ((dir-1)&3)] (FUN_1000_837a). */
 export const ALTAR_EXITS = [17, 22, 23, 20, 18, 20, 23, 21, 19, 21, 23, 22];
 

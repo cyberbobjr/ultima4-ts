@@ -1,4 +1,8 @@
 // Location numbering follows the order of the map-file tables in AVATAR.EXE (strings at 0xf77f.. and 0x1073d..).
+// Names and file names are read from the extracted catalog (src/data/text.ts), by DS offset.
+import { defineTexts, lazyList, ptrs, withGetters } from "../data/text";
+import { HAWKWIND } from "./town/strings";
+
 export const enum LocKind { World, Town, Castle, Village, Dungeon, Shrine }
 
 export interface LocationDef {
@@ -9,35 +13,74 @@ export interface LocationDef {
   map?: string; map2?: string; talk?: string; dungeon?: string;
 }
 
-export const LOCATIONS: LocationDef[] = [
-  { id: 0, name: "Britannia", kind: LocKind.World, x: 0, y: 0 },
-  { id: 1, name: "Castle of Lord British", kind: LocKind.Castle, x: 86, y: 107, map: "LCB_1.ULT", map2: "LCB_2.ULT", talk: "LCB.TLK" },
-  { id: 2, name: "The Lycaeum", kind: LocKind.Castle, x: 218, y: 107, map: "LYCAEUM.ULT", talk: "LYCAEUM.TLK" },
-  { id: 3, name: "Empath Abbey", kind: LocKind.Castle, x: 28, y: 50, map: "EMPATH.ULT", talk: "EMPATH.TLK" },
-  { id: 4, name: "Serpents Hold", kind: LocKind.Castle, x: 146, y: 241, map: "SERPENT.ULT", talk: "SERPENT.TLK" },
-  { id: 5, name: "Moonglow", kind: LocKind.Town, x: 232, y: 135, map: "MOONGLOW.ULT", talk: "MOONGLOW.TLK" },
-  { id: 6, name: "Britain", kind: LocKind.Town, x: 82, y: 106, map: "BRITAIN.ULT", talk: "BRITAIN.TLK" },
-  { id: 7, name: "Jhelom", kind: LocKind.Town, x: 36, y: 222, map: "JHELOM.ULT", talk: "JHELOM.TLK" },
-  { id: 8, name: "Yew", kind: LocKind.Town, x: 58, y: 43, map: "YEW.ULT", talk: "YEW.TLK" },
-  { id: 9, name: "Minoc", kind: LocKind.Town, x: 159, y: 20, map: "MINOC.ULT", talk: "MINOC.TLK" },
-  { id: 10, name: "Trinsic", kind: LocKind.Town, x: 106, y: 184, map: "TRINSIC.ULT", talk: "TRINSIC.TLK" },
-  { id: 11, name: "Skara Brae", kind: LocKind.Town, x: 22, y: 128, map: "SKARA.ULT", talk: "SKARA.TLK" },
-  { id: 12, name: "Magincia", kind: LocKind.Village, x: 187, y: 169, map: "MAGINCIA.ULT", talk: "MAGINCIA.TLK" },
-  { id: 13, name: "Paws", kind: LocKind.Village, x: 98, y: 145, map: "PAWS.ULT", talk: "PAWS.TLK" },
-  { id: 14, name: "Buccaneers Den", kind: LocKind.Village, x: 136, y: 158, map: "DEN.ULT", talk: "DEN.TLK" },
-  { id: 15, name: "Vesper", kind: LocKind.Village, x: 201, y: 59, map: "VESPER.ULT", talk: "VESPER.TLK" },
-  { id: 16, name: "Cove", kind: LocKind.Village, x: 136, y: 90, map: "COVE.ULT", talk: "COVE.TLK" },
-  { id: 17, name: "Deceit", kind: LocKind.Dungeon, x: 240, y: 73, dungeon: "DECEIT.DNG" },
-  { id: 18, name: "Despise", kind: LocKind.Dungeon, x: 91, y: 67, dungeon: "DESPISE.DNG" },
-  { id: 19, name: "Destard", kind: LocKind.Dungeon, x: 72, y: 168, dungeon: "DESTARD.DNG" },
-  { id: 20, name: "Wrong", kind: LocKind.Dungeon, x: 126, y: 20, dungeon: "WRONG.DNG" },
-  { id: 21, name: "Covetous", kind: LocKind.Dungeon, x: 156, y: 27, dungeon: "COVETOUS.DNG" },
-  { id: 22, name: "Shame", kind: LocKind.Dungeon, x: 58, y: 102, dungeon: "SHAME.DNG" },
-  { id: 23, name: "Hythloth", kind: LocKind.Dungeon, x: 239, y: 240, dungeon: "HYTHLOTH.DNG" },
-  { id: 24, name: "The Great Stygian Abyss!", kind: LocKind.Dungeon, x: 233, y: 233, dungeon: "ABYSS.DNG" },
+/** Location texts: names DS:1F94 + 2*id, ULT files DS:0822 + 2*id, TLK files DS:1736 + 2*id, DNG files DS:0872 + 2*id. */
+export const LOCATION_TEXT = defineTexts("locations", {
+  /** ids 1..32 */
+  names: ptrs(0x1f96, 32),
+  /** ids 1..16 */
+  ult: ptrs(0x0824, 16),
+  /** ids 1..16 */
+  tlk: ptrs(0x1738, 16),
+  /** ids 17..24 */
+  dng: ptrs(0x0894, 8),
+  /** upper floor of Lord British's castle (Klimb, 1000:4477) */
+  lcbUpper: 0x185d,
+  /** shown when entering Lord British's castle (the original prints the table name) */
+  lcbName: { kind: "port", fallback: "Castle of Lord British" },
+});
+
+const L = LOCATION_TEXT;
+type Row = Omit<LocationDef, "name" | "map" | "map2" | "talk" | "dungeon">;
+const town = (r: Row) => r.id >= 1 && r.id <= 16;
+const dungeon = (r: Row) => r.id >= 17 && r.id <= 24;
+
+const ROWS: Row[] = [
+  { id: 0, kind: LocKind.World, x: 0, y: 0 },
+  { id: 1, kind: LocKind.Castle, x: 86, y: 107 },
+  { id: 2, kind: LocKind.Castle, x: 218, y: 107 },
+  { id: 3, kind: LocKind.Castle, x: 28, y: 50 },
+  { id: 4, kind: LocKind.Castle, x: 146, y: 241 },
+  { id: 5, kind: LocKind.Town, x: 232, y: 135 },
+  { id: 6, kind: LocKind.Town, x: 82, y: 106 },
+  { id: 7, kind: LocKind.Town, x: 36, y: 222 },
+  { id: 8, kind: LocKind.Town, x: 58, y: 43 },
+  { id: 9, kind: LocKind.Town, x: 159, y: 20 },
+  { id: 10, kind: LocKind.Town, x: 106, y: 184 },
+  { id: 11, kind: LocKind.Town, x: 22, y: 128 },
+  { id: 12, kind: LocKind.Village, x: 187, y: 169 },
+  { id: 13, kind: LocKind.Village, x: 98, y: 145 },
+  { id: 14, kind: LocKind.Village, x: 136, y: 158 },
+  { id: 15, kind: LocKind.Village, x: 201, y: 59 },
+  { id: 16, kind: LocKind.Village, x: 136, y: 90 },
+  { id: 17, kind: LocKind.Dungeon, x: 240, y: 73 },
+  { id: 18, kind: LocKind.Dungeon, x: 91, y: 67 },
+  { id: 19, kind: LocKind.Dungeon, x: 72, y: 168 },
+  { id: 20, kind: LocKind.Dungeon, x: 126, y: 20 },
+  { id: 21, kind: LocKind.Dungeon, x: 156, y: 27 },
+  { id: 22, kind: LocKind.Dungeon, x: 58, y: 102 },
+  { id: 23, kind: LocKind.Dungeon, x: 239, y: 240 },
+  { id: 24, kind: LocKind.Dungeon, x: 233, y: 233 },
 ];
 
-export const VIRTUES = ["Honesty", "Compassion", "Valor", "Justice", "Sacrifice", "Honor", "Spirituality", "Humility"];
+// The world (id 0) shares the name of id 1 in the table; id 1 shows a port-written name.
+const withNames = withGetters(ROWS, {
+  name: (r: Row) => (r.id === 0 ? L.names[0] : r.id === 1 ? L.lcbName : L.names[r.id - 1]),
+});
+// Optional file fields only exist on the rows that have them (towns: map/talk, LCB: map2, dungeons: dungeon).
+export const LOCATIONS: LocationDef[] = withNames.map((r) => {
+  const o = r as LocationDef;
+  const def = (k: keyof LocationDef, get: () => string) => Object.defineProperty(o, k, { enumerable: true, configurable: true, get });
+  if (town(r)) {
+    def("map", () => L.ult[r.id - 1]);
+    if (r.id === 1) def("map2", () => L.lcbUpper);
+    def("talk", () => L.tlk[r.id - 1]);
+  }
+  if (dungeon(r)) def("dungeon", () => L.dng[r.id - 17].toUpperCase());
+  return o;
+});
+
+/** DS:1FC6 virtue names. */
+export const VIRTUES: readonly string[] = lazyList(8, (i) => HAWKWIND.virtues[i]);
 
 /** Shrines on the overworld (Spirituality is only reachable through a moongate). */
 export const SHRINES: { virtue: number; x: number; y: number }[] = [

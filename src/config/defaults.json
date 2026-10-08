@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "lang": {
+    "game": "en",
+    "ui": "en"
+  },
+  "assets": {
+    "dir": ""
+  },
+  "tiles": {
+    "pack": "original"
+  },
+  "display": {
+    "font": "auto",
+    "smoothing": false,
+    "keepAspect": true
+  },
+  "controls": {
+    "tapToMove": true,
+    "commandBar": "auto",
+    "inputTimeoutSeconds": 8
+  },
+  "debug": {
+    "enabled": false,
+    "godMode": false
+  },
+  "llm": {
+    "enabled": false,
+    "provider": "anthropic",
+    "model": "claude-sonnet-5-5",
+    "apiKey": ""
+  }
+}

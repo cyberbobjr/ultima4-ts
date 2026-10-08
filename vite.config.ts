@@ -1,33 +1,33 @@
+/// <reference types="vitest/config" />
 import { defineConfig, type Plugin } from "vite";
 import fs from "node:fs";
 import path from "node:path";
 
-// The original game data is never bundled: in dev/browser mode it is served
-// from the user's install under /game/<FILE>; in Tauri it is read by the Rust side.
-const GAME_DIR = process.env.U4_GAME_DIR ?? "C:/Program Files/GOG Galaxy/Games/Ultima 4";
-
-function gameData(): Plugin {
+// The game resources are extracted once from the original install (`npm run extract`) into
+// assets/original/. The dev server serves them from the project root; a build copies them into
+// dist/ when they exist (local builds only: they are derived from the original game).
+function extractedAssets(): Plugin {
+  let outDir = "dist";
   return {
-    name: "u4-game-data",
-    configureServer(server) {
-      server.middlewares.use("/game/", (req, res) => {
-        const name = decodeURIComponent((req.url ?? "").replace(/^\//, "").split("?")[0]);
-        if (!/^[A-Za-z0-9_.]+$/.test(name)) { res.statusCode = 400; res.end(); return; }
-        const file = path.join(GAME_DIR, name);
-        fs.readFile(file, (err, data) => {
-          if (err) { res.statusCode = 404; res.end(); return; }
-          res.setHeader("Content-Type", "application/octet-stream");
-          res.end(data);
-        });
-      });
+    name: "u4-extracted-assets",
+    apply: "build",
+    configResolved(c) { outDir = path.resolve(c.root, c.build.outDir); },
+    closeBundle() {
+      const src = path.resolve("assets/original");
+      if (!fs.existsSync(path.join(src, "manifest.json"))) {
+        this.warn("assets/original/ not found: the build will ask for `npm run extract` at startup");
+        return;
+      }
+      fs.cpSync(src, path.join(outDir, "assets/original"), { recursive: true });
     },
   };
 }
 
 export default defineConfig({
-  plugins: [gameData()],
+  plugins: [extractedAssets()],
   clearScreen: false,
   // Cargo build artifacts are locked while compiling; watching them crashes Vite on Windows.
-  server: { host: "127.0.0.1", port: 1420, strictPort: true, watch: { ignored: ["**/src-tauri/**"] } },
+  server: { host: "127.0.0.1", port: 1420, strictPort: true, watch: { ignored: ["**/src-tauri/**", "**/test-output/**"] } },
   build: { target: "es2022" },
+  test: { include: ["tests/**/*.test.ts"] },
 });

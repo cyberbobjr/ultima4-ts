@@ -1,5 +1,6 @@
 // Title sequence and character creation (TITLE.EXE), see src/intro/.
-import { loadGameFile, readSave, writeSave } from "../io/gamefs";
+import { readSave, writeSave } from "../io/gamefs";
+import { assets } from "../assets/store";
 import { decodeSave, encodeSave, type SaveGame } from "../formats/save";
 import { loadTitleData } from "../intro/data";
 import { NewGame } from "../intro/newgame";
@@ -22,8 +23,8 @@ export async function runIntro(g: Game): Promise<SaveGame> {
       if (choice === "journey") {
         // The original just starts AVATAR.EXE; an empty party (PARTY.SAV members = 0) has no game to resume.
         const own = await readSave("PARTY.SAV");
-        const save = decodeSave(own ?? (await loadGameFile("PARTY.SAV")));
-        if (save.members > 0) return save;
+        const save = own ? decodeSave(own) : await assets.originalSave();
+        if (save && save.members > 0) return save;
         await title.notice(["No game has been saved yet.", "", "Initiate a new game first."]);  // not in TITLE.EXE
         mode = "menu";
         continue;

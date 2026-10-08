@@ -12,25 +12,26 @@ fonctions originales (`1000:xxxx`) et des données (`DS:xxxx`). Voir `docs/RE_NO
 
 ## Il faut les fichiers du jeu original
 
-Aucun code original n'est exécuté (pas de DOSBox, pas d'émulation), mais les **données** du jeu sont
-lues à l'exécution : `WORLD.MAP`, `SHAPES.EGA`, `CHARSET.EGA`, cartes des villes (`*.ULT`), dialogues
-(`*.TLK`), arènes de combat (`*.CON`), donjons (`*.DNG`), images (`*.EGA`) et `TITLE.EXE` (lu comme
-une donnée pour les textes et tables de l'intro).
+Aucun code original n'est exécuté (pas de DOSBox, pas d'émulation), et le moteur ne lit pas non plus
+les fichiers originaux : leur contenu est **extrait une seule fois** dans des formats modernes (images
+PNG, cartes, dialogues, tables et catalogues de textes en JSON) par un outil TypeScript, et le jeu ne
+lit que ce dossier.
 
 Ces fichiers **ne sont pas inclus** dans ce dépôt. Ultima IV est disponible gratuitement sur GOG.
-Par défaut, ils sont lus depuis :
+Après l'avoir installé, lancez une fois :
 
-```
-C:\Program Files\GOG Galaxy\Games\Ultima 4
+```powershell
+npm run extract -- --game-dir "C:\Program Files\GOG Galaxy\Games\Ultima 4"
 ```
 
-La variable d'environnement `U4_GAME_DIR` permet d'indiquer un autre dossier. L'installation
+L'outil (`tools/extract-assets.ts`) décompresse `AVATAR.EXE` (EXEPACK) en mémoire, lit ses textes et
+ceux de `TITLE.EXE` aux offsets déclarés dans le code, et écrit `assets/original/` (ignoré par git).
+Sans `--game-dir`, il utilise `U4_GAME_DIR` ou l'emplacement GOG Galaxy ci-dessus. L'installation
 originale n'est jamais modifiée : les sauvegardes vont dans le dossier de données de l'application
 (Tauri) ou dans le `localStorage` (mode navigateur).
 
-> Pour une diffusion : `src/data/tables.ts` et `src/game/town/strings.ts` contiennent pour l'instant
-> des textes extraits d'`AVATAR.EXE`. Il faudra les lire depuis la copie de l'utilisateur à
-> l'exécution (comme l'intro le fait déjà avec `TITLE.EXE`) avant de publier.
+Le code source déclare seulement *où* se trouve chaque texte original (par exemple
+`talk.youSay: 0x2a62`, un offset DS dans `AVATAR.EXE`) ; les textes viennent du catalogue extrait.
 
 ## Lancer
 
@@ -44,6 +45,8 @@ npm install
 npm run tauri dev   # application de bureau, rechargement à chaud du front
 npm run dev         # navigateur seul : http://127.0.0.1:1420
 npm run build       # vérification des types + bundle de production
+npm test            # tests unitaires (Vitest) ; ceux des formats sont ignorés sans installation
+node tools/scenarios.mjs [--ref]  # non-régression par captures headless (serveur de dev lancé)
 ```
 
 Git Bash : `export PATH="/e/IdeaProjects/u4/.nodeenv/Scripts:$PATH"`, puis les mêmes commandes.

@@ -25,6 +25,10 @@ export const SCENARIOS = {
   combat: ["eval:void __game.worldFight({ tile: 0xc0, x: __game.px, y: __game.py - 1 })", "wait:1200", "shot",
     "a", "ArrowUp", "wait:1500", "shot", "Space", "wait:1500", "shot"],
   locate: ["l", "wait:300", "shot", "p", "wait:300", "shot"],
+  // title screen (any key skips the opening animation), then a new game: name, sex, story pages, first dilemma
+  intro: ["wait:1500", "Enter", "wait:1500", "shot"],
+  introNew: ["Enter", "wait:1500", "i", "wait:800", "shot", "type:Iolo", "Enter", "wait:300", "m", "wait:800", "shot",
+    "Enter", "wait:600", "shot", "Enter*3", "wait:600", "shot"],
 };
 
 const args = process.argv.slice(2);
@@ -51,8 +55,10 @@ for (const name of names) {
   const logs = [];
   page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") logs.push(`[${m.type()}] ${m.text()}`); });
   page.on("pageerror", (e) => logs.push(`[pageerror] ${e.message}`));
-  await page.goto(`${URL}?skipintro&seed=1`, { waitUntil: "networkidle0" });
-  await page.waitForFunction("window.__game && window.__game.map", { timeout: 15000 });
+  // "intro*" scenarios start on the title screen, the others directly in the game.
+  const intro = name.startsWith("intro");
+  await page.goto(`${URL}?${intro ? "" : "skipintro&"}seed=1`, { waitUntil: "networkidle0" });
+  await page.waitForFunction(intro ? "window.__game" : "window.__game && window.__game.map", { timeout: 15000 });
   await pause(800);
   let n = 0;
   for (const s of steps) {

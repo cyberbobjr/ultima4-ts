@@ -2,8 +2,7 @@
 // Ported from AVATAR.EXE (unpacked): use 1000:07AE (table DS:0434) with handlers 1000:01E1..05CE,
 // search 1000:913A (table DS:2920) and finds 1000:8D4B..90C5, peer 1000:C41D/C403/B9EF, new order 1000:7034,
 // fire 1000:73C9, ignite 1000:7525.
-import { loadGameFile } from "../io/gamefs";
-import { decodeTown } from "../formats/maps";
+import { assets } from "../assets/store";
 import { ALTAR_STONE_MASKS, STONE_COLORS } from "../data/tables";
 import { rand8 } from "./combat";
 import type { Game } from "./game";
@@ -298,7 +297,7 @@ async function telescope(g: Game) {
   const k = await askKey(g, "You Select:", "A", "P");
   if (k < 0) return;
   const loc = LOCATIONS[k - 0x40];
-  const { tiles } = decodeTown(await loadGameFile(loc.map!));
+  const { tiles } = await assets.town(loc.map!);
   await showPeer(g, (x, y) => tiles[y * 32 + x], null);
 }
 

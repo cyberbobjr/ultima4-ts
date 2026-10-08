@@ -1,7 +1,6 @@
 // Core game loop: state, map switching, movement, commands and screen composition.
-import { loadGameFile, readSave, writeSave } from "../io/gamefs";
-import { decodeTown, decodeWorld } from "../formats/maps";
-import { decodeTalk } from "../formats/tlk";
+import { readSave, writeSave } from "../io/gamefs";
+import { assets } from "../assets/store";
 import { encodeSave, type PlayerRecord, type SaveGame } from "../formats/save";
 import { EGA_PALETTE } from "../formats/ega";
 import { Renderer, TILE, VIEW_TILES, VIEW_X, VIEW_Y } from "../render/renderer";
@@ -77,7 +76,7 @@ export class Game {
 
   async start(save: SaveGame) {
     this.save = save;
-    const world = decodeWorld(await loadGameFile("WORLD.MAP"));
+    const world = await assets.world();
     this.world = { kind: "world", width: 256, height: 256, tiles: world };
     this.map = this.world;
     this.px = save.x; this.py = save.y;
@@ -658,8 +657,8 @@ export class Game {
 
   async enterTown(loc: LocationDef, level: number, at?: [number, number]) {
     const file = level === 0 ? loc.map! : loc.map2!;
-    const { tiles, npcs } = decodeTown(await loadGameFile(file));
-    const dialogues = decodeTalk(await loadGameFile(loc.talk!));
+    const { tiles, npcs } = await assets.town(file);
+    const dialogues = await assets.talk(loc.talk!);
     const town: TownMap = {
       kind: "town", loc, level, width: 32, height: 32, tiles, dialogues,
       npcs: npcs

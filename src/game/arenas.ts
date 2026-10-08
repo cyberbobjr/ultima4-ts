@@ -1,7 +1,7 @@
 // Choice of the combat arena (*.CON) from the terrain, as in the original
 // (file names from the AVATAR.EXE string table).
-import { loadGameFile } from "../io/gamefs";
-import { decodeCombat, type CombatMap } from "../formats/maps";
+import { assets } from "../assets/store";
+import type { CombatMap } from "../formats/maps";
 import { T } from "./tiles";
 
 export function arenaFor(partyTile: number, monsterTile: number, onShip: boolean, monsterOnSea: boolean): string {
@@ -23,5 +23,5 @@ export function arenaFor(partyTile: number, monsterTile: number, onShip: boolean
 }
 
 export async function loadArena(name: string): Promise<CombatMap> {
-  return decodeCombat(await loadGameFile(name));
+  return assets.combat(name);
 }

@@ -2,9 +2,9 @@
 // the animated map vignette in the box (FUN_1000_034d/041a/05a4), the two creatures in the top
 // corners (FUN_1000_019a) and the menu (FUN_1000_0b45 / main loop in FUN_1000_0eaa).
 import { random } from "../game/rng";
-import { decodeScreen } from "../formats/ega";
-import { loadGameFile } from "../io/gamefs";
-import { OFF, type TitleData } from "./data";
+import { assets } from "../assets/store";
+import { MENU_POS, type TitleData } from "./data";
+import { TITLE } from "./texts";
 import { Keys, Screen } from "./screen";
 
 const MAP_W = 19, MAP_H = 5, MAP_Y = 0x68;
@@ -31,25 +31,25 @@ export class Title {
   private readonly frame: Uint8Array;
 
   constructor(private readonly scr: Screen, private readonly keys: Keys, private readonly d: TitleData) {
-    this.baseMap = d.bytes(OFF.baseMap, MAP_W * MAP_H);
-    this.script = d.bytes(OFF.script, 1024);
-    this.objBase = d.bytes(OFF.objBase, 16);
+    this.baseMap = Uint8Array.from(d.baseMap.slice(0, MAP_W * MAP_H));
+    this.script = Uint8Array.from(d.script);
+    this.objBase = Uint8Array.from(d.objBase);
     this.frame = this.baseMap.slice();
     scr.animators.push((now) => this.animateCreatures(now), (now) => this.animateMap(now));
   }
 
   async load() {
-    this.title = decodeScreen(await loadGameFile("TITLE.EGA")).pixels;
-    this.animate = decodeScreen(await loadGameFile("ANIMATE.EGA")).pixels;
+    this.title = (await assets.screen("TITLE.EGA")).pixels;
+    this.animate = (await assets.screen("ANIMATE.EGA")).pixels;
   }
 
   // ------------------------------------------------------------------ creatures
 
   private drawCreatures(rise = 32) {
-    const d = this.d, srcY = d.bytes(OFF.animSrcY, 18);
-    const l = d.bytes(OFF.seqL + this.seqL, 1)[0], r = d.bytes(OFF.seqR + this.seqR, 1)[0];
-    this.scr.blit(this.animate, 6, rise, d.bytes(OFF.animSrcXL, 18)[l], srcY[l] + 32 - rise, 0, 0);
-    this.scr.blit(this.animate, 6, rise, d.bytes(OFF.animSrcXR, 18)[r], srcY[r] + 32 - rise, 0, 0x22);
+    const d = this.d, srcY = d.animSrcY;
+    const l = d.seqL[this.seqL], r = d.seqR[this.seqR];
+    this.scr.blit(this.animate, 6, rise, d.animSrcXL[l], srcY[l] + 32 - rise, 0, 0);
+    this.scr.blit(this.animate, 6, rise, d.animSrcXR[r], srcY[r] + 32 - rise, 0, 0x22);
   }
 
   private stepCreatures() {
@@ -127,7 +127,7 @@ export class Title {
 
   /** FUN_1000_02d1: the Lord British signature. */
   private signature(slow: boolean): Promise<void> | void {
-    const pts = this.d.bytes(OFF.signature, 1024);
+    const pts = this.d.signature;
     const plot = (i: number) => {
       this.scr.plot(0xbf - pts[i + 1], pts[i] + 0x14, 3);
       this.scr.plot(0xbf - pts[i + 1], pts[i] + 0x15, 3);
@@ -156,7 +156,7 @@ export class Title {
     if (!k.hit) {
       for (let h = 1; h < 6; h++) { s.blit(t, 0xf, h, 0xe, 5 - h, 0x21, 0xe); if (!k.hit) await k.delay(60); }
       await k.delay(1000);
-      const masks = this.d.bytes(OFF.dissolve, 128);
+      const masks = Uint8Array.from(this.d.dissolve);
       for (let u = 0; u < 0x39; u++) {
         s.blitDissolve(t, 0x1e, 0x2d, 5, 0x22, 0x22, 5, k.hit ? 0x38 : u, masks);
         if (!k.hit) await k.delay(25); else u = 0x38;
@@ -213,7 +213,8 @@ export class Title {
   drawMenu() {
     const s = this.scr;
     s.clearBox();
-    for (const [off, col, row] of OFF.menu) s.printAt(this.d.str(off), col, row);
+    const lines = [TITLE.menu0, TITLE.menu1, TITLE.menu2, TITLE.menu3, TITLE.menu4, TITLE.menu5, TITLE.menu6];
+    lines.forEach((line, i) => s.printAt(line, MENU_POS[i][0], MENU_POS[i][1]));
     s.col = 0x18; s.row = 0x10;
   }
 

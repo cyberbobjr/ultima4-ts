@@ -6,8 +6,8 @@
 // Save layout while underground (as in the original): save.x/y = position in the dungeon (DS:9318/9319),
 // save.dngX/dngY = overworld position (DS:9332/9333), dngLevel = level (DS:9336, 0xFFFF on the surface),
 // orientation 0 W, 1 N, 2 E, 3 S (DS:9334), balloonState = torch turns left (DS:9320).
-import { loadGameFile } from "../io/gamefs";
-import { decodeCombat, decodeDungeon, type CombatMap, type DungeonRoom } from "../formats/maps";
+import { assets } from "../assets/store";
+import type { CombatMap, DungeonRoom } from "../formats/maps";
 import type { PlayerRecord } from "../formats/save";
 import type { CombatResult } from "./combat";
 import type { Game } from "./game";
@@ -77,7 +77,7 @@ class DungeonRun {
 
   /** Loads a dungeon (FUN_1000_3e94): fresh copy of the levels, no wandering monsters. */
   async load(loc: LocationDef) {
-    const dng = decodeDungeon(await loadGameFile(loc.dungeon!));
+    const dng = await assets.dungeon(loc.dungeon!);
     this.loc = loc;
     this.levels = dng.levels.map((l) => l.slice());
     this.rooms = dng.rooms;
@@ -368,7 +368,7 @@ class DungeonRun {
     this.setCell(s.x, s.y, t);
     const i = this.wanderers.findIndex((m) => m && m.level === this.level && m.x === s.x && m.y === s.y);
     if (i >= 0) this.wanderers[i] = null;
-    const arena = decodeCombat(await loadGameFile(DUNGEON_ARENAS[t >> 4]));
+    const arena = await assets.combat(DUNGEON_ARENAS[t >> 4]);
     const res = await this.fight(arena, this.group(tile, arena));
     // 1000:8283: a beaten group leaves a chest on an empty square.
     if (res === "won" && !NO_CHEST_MONSTERS.includes(tile) && this.here === 0) this.setCell(s.x, s.y, 0x40);

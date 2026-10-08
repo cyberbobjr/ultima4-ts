@@ -1,7 +1,7 @@
 // Shared helpers for spells, items, shrines and the endgame: original prompt routines, game mode,
 // timed waits and extra drawing layers (pictures OR-ed over the screen, small tiles in the viewport).
-import { loadGameFile } from "../../io/gamefs";
-import { decodeScreen, EGA_PALETTE } from "../../formats/ega";
+import { assets } from "../../assets/store";
+import { EGA_PALETTE } from "../../formats/ega";
 import type { PlayerRecord } from "../../formats/save";
 import type { Renderer } from "../../render/renderer";
 import { TILE, VIEW_TILES, VIEW_X, VIEW_Y } from "../../render/renderer";
@@ -127,7 +127,7 @@ export class PixelLayer {
 
 /** Loads a full-screen .EGA picture (RLE) as 64000 colour indices. */
 export async function loadPicture(name: string): Promise<Uint8Array> {
-  return decodeScreen(await loadGameFile(name)).pixels;
+  return (await assets.screen(name)).pixels;
 }
 
 /** Draws a tile over viewport cell (vx, vy) (projectiles, flashes). */

@@ -1,25 +1,6 @@
-// Access to the original game files (never bundled) and to save files.
+// Save files: the app data dir (Tauri) or localStorage (browser). Game resources are not read
+// here: they come from the extracted assets (src/assets/store.ts).
 const isTauri = "__TAURI_INTERNALS__" in window;
-
-const cache = new Map<string, Uint8Array>();
-
-export async function loadGameFile(name: string): Promise<Uint8Array> {
-  const key = name.toUpperCase();
-  const hit = cache.get(key);
-  if (hit) return hit;
-  let data: Uint8Array;
-  if (isTauri) {
-    const { invoke } = await import("@tauri-apps/api/core");
-    const buf = await invoke<ArrayBuffer>("read_game_file", { name: key });
-    data = new Uint8Array(buf);
-  } else {
-    const res = await fetch(`/game/${key}`);
-    if (!res.ok) throw new Error(`${key}: HTTP ${res.status}`);
-    data = new Uint8Array(await res.arrayBuffer());
-  }
-  cache.set(key, data);
-  return data;
-}
 
 const SAVE_PREFIX = "u4save:";
 

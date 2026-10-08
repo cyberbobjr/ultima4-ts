@@ -12,24 +12,24 @@ decompiled with Ghidra. Game rules, formulas and tables cite the original functi
 
 ## You need the original game files
 
-No original code is executed (no DOSBox, no emulation), but the game **data** is read at runtime:
-`WORLD.MAP`, `SHAPES.EGA`, `CHARSET.EGA`, town maps (`*.ULT`), dialogues (`*.TLK`), combat arenas
-(`*.CON`), dungeons (`*.DNG`), pictures (`*.EGA`), and `TITLE.EXE` (read as data for the intro texts
-and tables).
+No original code is executed (no DOSBox, no emulation), and the engine does not read the original
+files either: their content is **extracted once** into modern formats (PNG pictures, JSON maps,
+dialogues, tables and text catalogs) by a TypeScript tool, and the game only reads that folder.
 
-These files are **not included** in this repository. Ultima IV is available for free on GOG.
-By default they are read from:
+These files **are not included** in this repository. Ultima IV is available for free on GOG.
+After installing it, run once:
 
+```powershell
+npm run extract -- --game-dir "C:\Program Files\GOG Galaxy\Games\Ultima 4"
 ```
-C:\Program Files\GOG Galaxy\Games\Ultima 4
-```
 
-Set the `U4_GAME_DIR` environment variable to use another location. The original install is never
-modified: saves go to the app data directory (Tauri) or to `localStorage` (browser mode).
+The tool (`tools/extract-assets.ts`) unpacks `AVATAR.EXE` (EXEPACK) in memory, reads its texts and
+`TITLE.EXE`'s at the offsets declared in the source, and writes `assets/original/` (git-ignored).
+Without `--game-dir` it uses `U4_GAME_DIR` or the GOG Galaxy location above. The original install is
+never modified: saves go to the app data directory (Tauri) or to `localStorage` (browser mode).
 
-> Note for redistribution: `src/data/tables.ts` and `src/game/town/strings.ts` currently contain text
-> extracted from `AVATAR.EXE`. They should be loaded from the user's copy at runtime (as the intro
-> already does with `TITLE.EXE`) before publishing builds.
+The source only declares *where* each original text lives (for example `talk.youSay: 0x2a62`, a DS
+offset in `AVATAR.EXE`); the texts themselves come from the extracted catalog at runtime.
 
 ## Running
 
@@ -43,6 +43,8 @@ npm install
 npm run tauri dev   # desktop app, front-end hot reload
 npm run dev         # browser only: http://127.0.0.1:1420
 npm run build       # type check + production bundle
+npm test            # unit tests (Vitest); format tests are skipped without the install
+node tools/scenarios.mjs [--ref]  # headless screenshot regression (dev server running)
 ```
 
 Git Bash: `export PATH="/e/IdeaProjects/u4/.nodeenv/Scripts:$PATH"`, then the same commands.

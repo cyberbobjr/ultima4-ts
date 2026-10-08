@@ -1,5 +1,5 @@
 // Shrines and meditation: 1000:E72C (meditation), 1000:E6DF (vision picture).
-import { loadGameFile } from "../io/gamefs";
+import { assets } from "../assets/store";
 import { MANTRAS, MEDITATION, SHRINE_VISIONS, SHRINES } from "../data/tables";
 import type { Game } from "./game";
 import { VIRTUES } from "./locations";
@@ -14,7 +14,7 @@ async function meditate(g: Game, virtue: number) {
     return;
   }
   // SHRINE.CON: the first 121 bytes are the 11x11 view shown while in the shrine (mode 7)
-  const restoreView = showTiles(g, (await loadGameFile("SHRINE.CON")).subarray(0, 121));
+  const restoreView = showTiles(g, await assets.shrineMap());
   try {
     say("\nYou enter the ancient shrine and sit before the altar...\nUpon what virtue dost thou meditate?\n");
     const subject = await g.getLine(15);

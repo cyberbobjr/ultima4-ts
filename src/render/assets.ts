@@ -1,5 +1,5 @@
-import { loadGameFile } from "../io/gamefs";
-import { decodeCharset, decodeScreen, decodeTiles, type IndexedImage } from "../formats/ega";
+import { assets } from "../assets/store";
+import type { IndexedImage } from "../formats/ega";
 
 export interface Assets {
   tiles: IndexedImage[];
@@ -8,6 +8,6 @@ export interface Assets {
 }
 
 export async function loadAssets(): Promise<Assets> {
-  const [shapes, charset, start] = await Promise.all([loadGameFile("SHAPES.EGA"), loadGameFile("CHARSET.EGA"), loadGameFile("START.EGA")]);
-  return { tiles: decodeTiles(shapes), glyphs: decodeCharset(charset), frame: decodeScreen(start) };
+  const [tiles, glyphs, frame] = await Promise.all([assets.tiles(), assets.glyphs(), assets.screen("START.EGA")]);
+  return { tiles, glyphs, frame };
 }

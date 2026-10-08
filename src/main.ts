@@ -7,9 +7,19 @@ import { installMagic } from "./game/magic";
 import { installItems } from "./game/items";
 import { installShrine } from "./game/shrine";
 import { setSeed } from "./game/rng";
+import { assets as store } from "./assets/store";
+import { setGameText } from "./data/text";
+import "./data/all-texts";
+import { loadConfig } from "./config/config";
 
 async function main() {
   const canvas = document.getElementById("screen") as HTMLCanvasElement;
+  if (!(await store.manifest())) throw new Error(
+    "The game resources have not been extracted yet.\n\n" +
+    "Run once, from the project folder:\n  npm run extract -- --game-dir \"<your Ultima IV install>\"\n\n" +
+    "(default install: C:\\Program Files\\GOG Galaxy\\Games\\Ultima 4)");
+  const cfg = await loadConfig();
+  setGameText(await store.gameText(cfg.lang.game).catch(() => store.gameText("en")), await store.gameText("en"));
   const assets = await loadAssets();
   const renderer = new Renderer(canvas, assets);
   const game = new Game(renderer, new Input());
@@ -37,7 +47,7 @@ async function main() {
 
   // Dev shortcut for automated tests: ?skipintro starts directly from the original PARTY.SAV.
   const save = import.meta.env.DEV && location.search.includes("skipintro")
-    ? (await import("./formats/save")).decodeSave(await (await import("./io/gamefs")).loadGameFile("PARTY.SAV"))
+    ? (await store.originalSave() ?? await store.newParty())
     : await runIntro(game);
   if (save.members === 0) { save.members = 1; save.players[0].name ||= "Avatar"; }
   game.overlay = null;
