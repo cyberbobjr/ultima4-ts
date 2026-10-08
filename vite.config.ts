@@ -32,6 +32,6 @@ export default defineConfig({
   clearScreen: false,
   // Cargo build artifacts are locked while compiling; watching them crashes Vite on Windows.
   server: { host: "127.0.0.1", port: 1420, strictPort: true, watch: { ignored: ["**/src-tauri/**", "**/test-output/**"] } },
-  build: { target: "es2022" },
+  build: { target: "es2022", rollupOptions: { output: { manualChunks: { three: ["three"] } } } },
   test: { include: ["tests/**/*.test.ts"] },
 });
