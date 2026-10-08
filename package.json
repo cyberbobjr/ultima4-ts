@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "extract": "tsx tools/extract-assets.ts",
+    "assets:local": "git checkout local/bundled-assets -- assets/i18n && git reset -q assets/i18n",
     "tauri": "tauri"
   },
   "dependencies": {
