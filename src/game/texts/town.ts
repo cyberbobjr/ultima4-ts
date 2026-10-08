@@ -9,6 +9,6 @@ export const MSG_TOWN = defineTexts("msg.town", {
    */
   topicBye: 0x2a3e, topicName: 0x2a42, topicLook: 0x2a47, topicJob: 0x2a4c, topicHealth: 0x2a50,
   topicJoin: 0x2a57, topicGive: 0x2a5c,
-  /** 1000:A4B4: articles that make the attacker "He/She/It" rather than the NPC's name ("On guard!") */
+  /** 1000:A4B4: articles that make the attacker rather than the NPC's name */
   articleA: 0x2c7e, articleThe: 0x2c81,
 });

@@ -3,6 +3,6 @@
 import { defineTexts, portList } from "../../data/text";
 
 export const MSG_INTRO = defineTexts("msg.intro", {
-  /** Notice of "Journey Onward" when there is no saved game (not in TITLE.EXE: it just starts AVATAR.EXE) */
+  /** Notice of when there is no saved game (not in TITLE.EXE: it just starts AVATAR.EXE) */
   noSave: portList(3),
 });

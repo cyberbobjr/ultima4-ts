@@ -59,7 +59,7 @@ export const MSG_MAGIC = defineTexts("msg.magic", {
   keyThird: 0x00bc,
   noPlaceStones: 0x01bf,
   noPlaceKey: 0x0294,
-  abyssApproach: 0x01d6, // "...rings out: What virtue dost stem from "
+  abyssApproach: 0x01d6,
   abyssQuestionEnd: 0x021d,
   useThyStone: 0x0221,
   youHaveNone: 0x024a,
