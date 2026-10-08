@@ -2,7 +2,6 @@
 // altar of the 8th Abyss level. Failures eject the party to the overworld (1000:2F9D, positions DS:0BF0/0BFE).
 import { CODEX_EJECT_POSITIONS, CODEX_FINAL_ANSWER, CODEX_QUESTIONS, CODEX_WORD_OF_PASSAGE } from "../../data/tables";
 import type { Game } from "../game";
-import { dungeonSpellHooks } from "../magic";
 import { addDrawHook, blankView, flushKeys, loadPicture, pause, PixelLayer, sameText, shake, ticks } from "./ui";
 
 /** Thrown to unwind the codex after an ejection (the original longjmps back to the main loop). */
@@ -30,7 +29,7 @@ class Codex {
     s.balloonState = 0;
     g.spellEffect = null;
     this.cleanup();
-    if (dungeonSpellHooks.exit) dungeonSpellHooks.exit();
+    if (g.dungeon.exit) g.dungeon.exit();
     else { s.location = 0; g.setPos(pos.x, pos.y); }
     flushKeys(g);
     throw new Ejected();

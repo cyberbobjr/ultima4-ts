@@ -3,6 +3,7 @@
 // 1000:6409/6428/6447, projectiles 1000:6466, handlers DS:216E (1000:6558..6DC1), mixing 1000:8C08,
 // status lists 1000:4BC7 (reagents) / 1000:4C42 (mixtures).
 import { GATE_DESTINATIONS, REAGENTS, SPELLS, WALKABLE_TILES } from "../data/tables";
+import { endsTurn } from "./commands";
 import type { CombatApi } from "./combat";
 import { isUndead, rand8 } from "./combat";
 import type { Game } from "./game";
@@ -17,7 +18,7 @@ import { peerAtMap } from "./items";
  * Hooks filled by dungeon.ts while the party is underground (the level data lives in the dungeon module).
  * Coordinates are dungeon cells (0..7); `level` is save.dngLevel. Set them on entry, reset to null on exit.
  */
-export interface DungeonSpellHooks {
+export interface DungeonHooks {
   /** Cell byte of the level map (DS:8742 + level*64). */
   cell: ((x: number, y: number, level: number) => number) | null;
   setCell: ((x: number, y: number, level: number, v: number) => void) | null;
@@ -28,12 +29,11 @@ export interface DungeonSpellHooks {
   /** Dungeon peer map (1000:C23B) without using a gem: View spell. */
   peer: (() => Promise<void>) | null;
 }
-export const dungeonSpellHooks: DungeonSpellHooks = { cell: null, setCell: null, exit: null, refresh: null, peer: null };
 
 /** Dungeon light counter DS:9320 (= save.balloonState underground): Light spell and torches add 100 turns. */
 export function addDungeonLight(g: Game, turns: number) {
   g.save.balloonState = (g.save.balloonState + turns) & 0xffff;
-  dungeonSpellHooks.refresh?.();
+  g.dungeon.refresh?.();
 }
 
 /** Optional extensions of CombatApi used when combat.ts provides them (Dispell, Energy, Open in combat). */
@@ -116,7 +116,7 @@ async function dispell(c: Ctx) {
   const g = c.g, s = g.save;
   if (c.mode === 3) {
     if (!pay(c)) return;
-    const [x, y] = ahead(g), h = dungeonSpellHooks;
+    const [x, y] = ahead(g), h = g.dungeon;
     if (h.cell && h.setCell && (h.cell(x, y, s.dngLevel) & 0xf0) === 0xa0) { h.setCell(x, y, s.dngLevel, 0); h.refresh?.(); return; }
   } else if (c.mode > 2 || !(g.inBalloon && s.balloonState !== 0)) {
     const d = await g.askDir("Dir: ");
@@ -150,7 +150,7 @@ async function energy(c: Ctx) {
     g.con.println(k);
     if (c.mode === 3) {
       if (!pay(c)) return;
-      const [x, y] = ahead(g), h = dungeonSpellHooks;
+      const [x, y] = ahead(g), h = g.dungeon;
       if (h.cell && h.setCell) {
         if (h.cell(x, y, s.dngLevel) !== 0) failed(g);
         h.setCell(x, y, s.dngLevel, 0xa0 | (field & 3)); // written even after "Failed!" (original behaviour)
@@ -185,7 +185,7 @@ async function open(c: Ctx) {
   if (!pay(c)) return;
   if (c.mode === 1 && g.inBalloon) { failed(g); return; }
   if (c.mode === 3) {
-    const h = dungeonSpellHooks, s = g.save;
+    const h = g.dungeon, s = g.save;
     if (h.cell && h.setCell && h.cell(s.x, s.y, s.dngLevel) === 0x40) {
       h.setCell(s.x, s.y, s.dngLevel, 0); h.refresh?.();
       await g.openChest(-1);
@@ -206,7 +206,7 @@ async function open(c: Ctx) {
     const api = c.api!, { x, y } = api.casterPos;
     if (api.tileAt && api.setTile && api.tileAt(x, y) === T.CHEST) {
       api.setTile(x, y, T.DUNGEON_FLOOR);
-      const h = dungeonSpellHooks, s = g.save;
+      const h = c.g.dungeon, s = g.save;
       if (c.g.save.location >= 17 && h.cell && h.setCell && h.cell(s.x, s.y, s.dngLevel) === 0x40) h.setCell(s.x, s.y, s.dngLevel, 0);
       await g.openChest(c.who);
       return;
@@ -217,7 +217,7 @@ async function open(c: Ctx) {
 
 /** Y-up 1000:6D3D / Z-down 1000:6DC1: random empty square of the new level (32 tries). */
 function changeLevel(c: Ctx, delta: number) {
-  const g = c.g, s = g.save, h = dungeonSpellHooks;
+  const g = c.g, s = g.save, h = g.dungeon;
   if (!dungeonOnly(c) || !pay(c)) return;
   if (s.location !== ABYSS && !(delta > 0 && s.dngLevel === 7)) {
     const level = s.dngLevel + delta;
@@ -236,7 +236,7 @@ function changeLevel(c: Ctx, delta: number) {
 async function view(c: Ctx) {
   if (!pay(c)) return;
   if (c.g.save.location < 0x11) await peerAtMap(c.g);
-  else await dungeonSpellHooks.peer?.();
+  else await c.g.dungeon.peer?.();
 }
 
 /** Spell handlers, table DS:216E. */
@@ -306,7 +306,7 @@ const HANDLERS: ((c: Ctx) => Promise<void> | void)[] = [
     c.g.wind = ({ W: 0, N: 1, E: 2, S: 3 } as Record<Dir, number>)[d];
   },
   // X X-it 1000:6D22: level = 0xFFFF -> back to the surface
-  (c) => { if (dungeonOnly(c) && pay(c)) dungeonSpellHooks.exit?.(); },
+  (c) => { if (dungeonOnly(c) && pay(c)) c.g.dungeon.exit?.(); },
   (c) => changeLevel(c, -1), // Y
   (c) => changeLevel(c, 1), // Z
 ];
@@ -405,13 +405,9 @@ async function mix(g: Game) {
 }
 
 export function installMagic(g: Game) {
-  g.castSpell = async () => {
-    await cast(g, null);
-    if (gameMode(g) < 3) g.endTurn();
-  };
-  g.castInCombat = (api) => cast(g, api);
-  g.mixReagents = async () => {
-    await mix(g);
-    if (gameMode(g) < 3) g.endTurn();
-  };
+  g.commands.register(
+    { key: "c", id: "cast", contexts: ["world", "town", "dungeon"], run: async (env) => { await cast(g, null); endsTurn(env); } },
+    { key: "c", id: "cast", contexts: ["combat"], run: (env) => cast(g, env.combat!) },
+    { key: "m", id: "mix", contexts: ["world", "town", "dungeon"], run: async (env) => { await mix(g); endsTurn(env); } },
+  );
 }

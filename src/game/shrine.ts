@@ -76,14 +76,13 @@ async function meditate(g: Game, virtue: number) {
   }
 }
 
-export function installShrine(g: Game) {
-  g.enterShrine = async (virtue: number) => {
-    g.save.location = 25 + virtue; // DS:9338 while inside
-    try {
-      await meditate(g, virtue);
-    } finally {
-      g.save.location = 0;
-    }
-    g.endTurn();
-  };
+/** Entering a shrine (E)nter on its tile, or the moongate to Spirituality). */
+export async function meditateAt(g: Game, virtue: number) {
+  g.save.location = 25 + virtue; // DS:9338 while inside
+  try {
+    await meditate(g, virtue);
+  } finally {
+    g.save.location = 0;
+  }
+  g.endTurn();
 }

@@ -15,6 +15,9 @@ import { creatureInfo, isNonEvil, rand8, runCombat, spawnGroup, type CombatApi, 
 import { loadArena } from "./arenas";
 import { HORN_EFFECT } from "./items";
 import { LayerStack, type StatusPanel } from "../ui/layers";
+import { CommandRegistry, type Command, type CommandContext } from "./commands";
+import { meditateAt } from "./shrine";
+import type { DungeonHooks } from "./magic";
 import { runDungeon } from "./dungeon";
 
 export const CLASS_NAMES = ["Mage", "Bard", "Fighter", "Druid", "Tinker", "Paladin", "Ranger", "Shepherd"];
@@ -54,9 +57,15 @@ export class Game {
   px = 0; py = 0;
   objects: WorldObject[] = [];
   readonly con = new Console();
+  /** Animation clock: +1 per 250 ms tick (main.ts). */
   private animTick = 0;
+  get frame() { return this.animTick; }
   /** Modes (intro, combat, dungeon, shops, visions, endgame) draw through layers over the game screen. */
   readonly layers = new LayerStack();
+  /** Key commands by context; modules register theirs (magic.ts, items.ts). */
+  readonly commands = new CommandRegistry();
+  /** Level access for spells and items while in a dungeon (set by dungeon.ts, all null elsewhere). */
+  readonly dungeon: DungeonHooks = { cell: null, setCell: null, exit: null, refresh: null, peer: null };
   private frameCanvas: HTMLCanvasElement;
   private openedDoors: { x: number; y: number; turns: number }[] = [];
 
@@ -67,6 +76,36 @@ export class Game {
     const img = ctx.createImageData(320, 200);
     r.assets.frame.pixels.forEach((c, i) => img.data.set([...EGA_PALETTE[c], 255], i * 4));
     ctx.putImageData(img, 0, 0);
+    this.registerCommands();
+  }
+
+  /** Overworld/town context of the key commands. */
+  get context(): CommandContext { return this.map?.kind === "town" ? "town" : "world"; }
+
+  /** Commands of this module (1000:1C06 dispatch); C, M, U, S, P, N, F, I come from magic.ts and items.ts. */
+  private registerCommands() {
+    const out: readonly CommandContext[] = ["world", "town"], all: readonly CommandContext[] = ["world", "town", "dungeon"];
+    const cmd = (key: string, id: string, contexts: readonly CommandContext[], run: () => unknown): Command => ({ key, id, contexts, run: async () => { await run(); } });
+    this.commands.register(
+      cmd(" ", "pass", out, () => { this.con.println("Pass"); this.endTurn(); }),
+      cmd("a", "attack", out, () => this.attack()),
+      cmd("b", "board", out, () => this.board()),
+      cmd("d", "descend", out, () => this.descend()),
+      cmd("e", "enter", out, () => this.enter()),
+      cmd("g", "getChest", out, () => this.getChest()),
+      cmd("h", "holeUp", out, () => this.holeUp()),
+      cmd("j", "jimmy", out, () => this.jimmy()),
+      cmd("k", "klimb", out, () => this.klimb()),
+      cmd("l", "locate", out, () => this.locate()),
+      cmd("o", "open", out, () => this.open()),
+      cmd("q", "quitSave", out, () => this.quitSave()),
+      cmd("r", "ready", all, () => this.readyWeapon()),
+      cmd("t", "talk", out, () => this.talk()),
+      cmd("w", "wear", all, () => this.wearArmour()),
+      cmd("x", "exit", out, () => this.exitTransport()),
+      cmd("y", "yell", out, () => this.yell()),
+      cmd("z", "ztats", all, () => this.ztats()),
+    );
   }
 
   // ---------------------------------------------------------------- setup
@@ -97,7 +136,7 @@ export class Game {
       const k = await this.input.next(this.map.kind === "world" ? 8000 : 6000);
       if (!k) { this.con.println("Pass"); this.endTurn(); }
       else await this.command(k);
-      if (this.pendingShrine >= 0 && this.enterShrine) {
+      if (this.pendingShrine >= 0) {
         const v = this.pendingShrine;
         this.pendingShrine = -1;
         await this.enterShrine(v);
@@ -114,35 +153,10 @@ export class Game {
   async command(k: Key) {
     const dir = Input.direction(k);
     if (dir) { await this.move(dir); return; }
-    switch (k.key.toLowerCase()) {
-      case " ": this.con.println("Pass"); this.endTurn(); break;
-      case "b": this.board(); break;
-      case "e": await this.enter(); break;
-      case "x": this.exitTransport(); break;
-      case "k": await this.klimb(); break;
-      case "d": await this.descend(); break;
-      case "t": await this.talk(); break;
-      case "o": await this.open(); break;
-      case "j": await this.jimmy(); break;
-      case "g": await this.getChest(); break;
-      case "l": this.locate(); break;
-      case "y": this.yell(); break;
-      case "z": await this.ztats(); break;
-      case "q": await this.quitSave(); break;
-      case "a": await this.attack(); break;
-      case "r": await this.readyWeapon(); break;
-      case "w": await this.wearArmour(); break;
-      case "h": await this.holeUp(); break;
-      case "c": await this.hook("Cast", this.castSpell); break;
-      case "m": await this.hook("Mix", this.mixReagents); break;
-      case "u": await this.hook("Use", this.useItem); break;
-      case "s": await this.hook("Search", this.search); break;
-      case "p": await this.hook("Peer", this.peerGem); break;
-      case "n": await this.hook("New Order", this.newOrder); break;
-      case "f": await this.hook("Fire", this.fireCannon); break;
-      case "i": await this.hook("Ignite", this.igniteTorch); break;
-      default: this.con.println("Bad command!"); break;
-    }
+    const ctx = this.context;
+    const c = this.commands.get(k.key, ctx);
+    if (c) await c.run({ g: this, ctx });
+    else this.con.println("Bad command!");
   }
 
   // ---------------------------------------------------------------- prompts
@@ -236,22 +250,8 @@ export class Game {
   setSpellEffect(e: string, turns: number) { this.spellEffect = e; this.spellTurns = turns; }
   tickEffects() { if (this.spellEffect && --this.spellTurns <= 0) this.spellEffect = null; }
 
-  /** Spell casting inside combat, installed by magic.ts. */
-  castInCombat: ((api: CombatApi) => Promise<void>) | null = null;
-  /** Command handlers installed by other modules (magic.ts, items.ts, shrine.ts). */
-  castSpell: (() => Promise<void>) | null = null;
-  mixReagents: (() => Promise<void>) | null = null;
-  useItem: (() => Promise<void>) | null = null;
-  search: (() => Promise<void>) | null = null;
-  peerGem: (() => Promise<void>) | null = null;
-  newOrder: (() => Promise<void>) | null = null;
-  fireCannon: (() => Promise<void>) | null = null;
-  igniteTorch: (() => Promise<void>) | null = null;
-  enterShrine: ((virtue: number) => Promise<void>) | null = null;
-
-  private async hook(name: string, h: (() => Promise<void>) | null) {
-    if (h) await h(); else this.con.println(`${name}\nNot Here!`);
-  }
+  /** Meditation at a shrine (shrine.ts), from E)nter or a moongate. */
+  async enterShrine(virtue: number) { await meditateAt(this, virtue); }
 
   private moveNpcs(town: TownMap) {
     for (const n of town.npcs) {
@@ -630,7 +630,7 @@ export class Game {
     if (shrine && tileAt(this.world, this.px, this.py) === T.SHRINE) {
       this.con.println(`the Shrine of\n${VIRTUES[shrine.virtue]}!\n`);
       if (!this.onFoot) { this.con.println("Only on foot!"); return; }
-      await this.hook("Shrine", this.enterShrine && (() => this.enterShrine!(shrine.virtue)));
+      await this.enterShrine(shrine.virtue);
       return;
     }
     const loc = locationAt(this.px, this.py);

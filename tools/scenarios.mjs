@@ -28,6 +28,8 @@ export const SCENARIOS = {
   // M)ix: spell list then reagent list in the status panel; shrine of Honesty: mantra prompt
   mix: ["m", "wait:400", "shot", "a", "wait:400", "shot", "Escape", "Escape", "Enter", "wait:400", "shot"],
   shrine: ["eval:__game.save.runes = 0xff", "eval:void __game.enterShrine(0)", "wait:1500", "shot", "Enter", "wait:800", "shot", "type:ahm", "Enter", "wait:2500", "shot"],
+  dungeonCmds: ["eval:__toDungeon(17)", "e", "wait:1500", "i", "wait:500", "z", "1", "wait:400", "shot", "c", "a", "wait:600", "shot", "u", "wait:400", "shot", "Escape", "n", "wait:400", "shot"],
+  combatCmds: ["eval:void __game.worldFight({ tile: 0xc0, x: __game.px, y: __game.py - 1 })", "wait:1200", "c", "wait:400", "shot", "a", "wait:800", "shot", "u", "wait:400", "shot", "Escape", "wait:400", "shot"],
   // title screen (any key skips the opening animation), then a new game: name, sex, story pages, first dilemma
   intro: ["wait:1500", "Enter", "wait:1500", "shot"],
   introNew: ["Enter", "wait:1500", "i", "wait:800", "shot", "type:Iolo", "Enter", "wait:300", "m", "wait:800", "shot",

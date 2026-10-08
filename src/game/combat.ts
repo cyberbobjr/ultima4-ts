@@ -5,7 +5,6 @@ import type { CombatMap } from "../formats/maps";
 import type { PlayerRecord } from "../formats/save";
 import { ARMOURS, COMBAT_RULES, MONSTERS, NON_EVIL_TILES, PERSON_COMBAT, WALKABLE_TILES, WEAPONS, type MonsterDef, type MonsterRanged } from "../data/tables";
 import type { Game } from "./game";
-import { useContext } from "./items";
 import { CLASS_TILES, T, animFrame } from "./tiles";
 import { DIR_NAMES, DIRS, type Dir } from "./maps";
 
@@ -112,7 +111,7 @@ class Combat {
 
   view = (): number[] => {
     const out = new Array<number>(121);
-    const frame = Math.floor(performance.now() / 250);
+    const frame = this.g.frame;
     for (let i = 0; i < 121; i++) out[i] = this.tiles[i];
     for (const m of this.monsters) if (m.alive) out[m.y * 11 + m.x] = has(m.info, "mimic") && !this.mimicRevealed(m) ? T.CHEST : animFrame(m.tile, frame + m.x);
     for (const m of this.party) {
@@ -200,18 +199,21 @@ class Combat {
         case "a": await this.attack(m); return;
         case "c":
           g.con.print("Cast Spell! ");
-          if (g.castInCombat) await g.castInCombat(this.api(m)); else g.con.println("\nNot Here!");
+          await g.commands.get("c", "combat")!.run({ g, ctx: "combat", combat: this.api(m) });
           return;
         case "r": await g.readyWeapon(m.i); return;
         case "u": {
-          if (!g.useItem) { g.con.println("Not Here!"); return; }
           // context for stones at altar rooms and the skull (items.ts)
           const arena = this.req.arena as CombatMap & { altar?: number };
-          useContext.pos = { x: m.x, y: m.y };
-          useContext.altar = arena.altar ?? -1;
-          useContext.room = this.req.context === "dungeon" && "altar" in arena;
-          useContext.killAll = () => { for (const x of this.monsters) if (x.tile !== T.LORD_BRITISH) x.alive = false; };
-          try { await g.useItem(); } finally { useContext.pos = null; useContext.altar = -1; useContext.room = false; useContext.killAll = null; }
+          await g.commands.get("u", "combat")!.run({
+            g, ctx: "combat",
+            use: {
+              pos: { x: m.x, y: m.y },
+              altar: arena.altar ?? -1,
+              room: this.req.context === "dungeon" && "altar" in arena,
+              killAll: () => { for (const x of this.monsters) if (x.tile !== T.LORD_BRITISH) x.alive = false; },
+            },
+          });
           return;
         }
         case "z": await g.ztatsFor(m.i); continue;

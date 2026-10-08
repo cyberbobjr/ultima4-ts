@@ -13,7 +13,6 @@ import type { CombatResult } from "./combat";
 import type { Game } from "./game";
 import { LOCATIONS, type LocationDef } from "./locations";
 import { DIR_DX, DIR_DY, DungeonView } from "../dungeon/view";
-import { dungeonSpellHooks } from "./magic";
 import {
   ABYSS, ABYSS_ITEMS, ALTAR_EXITS, ALTAR_NAMES, DUNGEON_ARENAS, FIRST_DUNGEON, MONSTER_UPGRADE, NO_CHEST_MONSTERS,
   ORB_DAMAGE, ORB_DEX, ORB_INT, ORB_STAT_CAP, ORB_STR, PEER_GLYPHS, STATIC_MONSTERS, STONE_NAMES, monsterIndex,
@@ -29,9 +28,6 @@ export interface DungeonArena extends CombatMap {
   exitDir: number | null;
 }
 
-/** Hook for the endgame: called when searching/using the Abyss altar. TODO: Codex chamber (1000:31F4). */
-export let onAbyssAltar: ((g: Game) => Promise<void>) | null = null;
-export function setAbyssAltarHandler(h: ((g: Game) => Promise<void>) | null) { onAbyssAltar = h; }
 
 const DIR_LABELS = [" West", "North", " East", "South"].map((s) => s.padStart(6)); // DS:1632.. (" North", "  West")
 const SURFACE = 0xffff;
@@ -121,7 +117,7 @@ class DungeonRun {
   async run(): Promise<void> {
     this.refresh(false);
     // Spells and items act on the level through these hooks (magic.ts).
-    const h = dungeonSpellHooks;
+    const h = this.g.dungeon;
     h.cell = (x, y, level) => this.cell(x, y, level);
     h.setCell = (x, y, level, v) => this.setCell(x, y, v, level);
     h.exit = () => this.exitToSurface();
@@ -178,18 +174,18 @@ class DungeonRun {
       case "s": await this.search(); return true;
       case "i": this.ignite(); return true;
       case "p": await this.peerGem(); return true;
-      case "z": await this.g.command({ key: "z", code: "KeyZ" }); return true;
       case "a": case "b": case "e": case "f": case "j": case "l": case "o": case "t": case "x": case "y":
         this.con.println("Not Here!"); return true;
-      case "c": if (this.g.castSpell) await this.g.castSpell(); this.refresh(false); return true;
-      case "m": if (this.g.mixReagents) await this.g.mixReagents(); return true;
-      case "u": if (this.g.useItem) await this.g.useItem(); this.refresh(false); return true;
-      case "n": if (this.g.newOrder) await this.g.newOrder(); return true;
-      case "r": await this.g.readyWeapon(); return true;
-      case "w": await this.g.wearArmour(); return true;
       case "h": case "q": case "v":
         // TODO: hole up (1000:8AB0) and quit&save (DNGMAP.SAV) underground.
         this.con.println("Not Here!"); return false;
+    }
+    // C)ast, M)ix, U)se, N)ew order, R)eady, W)ear, Z)tats: registered commands
+    const cmd = this.g.commands.get(key, "dungeon");
+    if (cmd) {
+      await cmd.run({ g: this.g, ctx: "dungeon" });
+      if (cmd.key === "c" || cmd.key === "u") this.refresh(false);
+      return true;
     }
     this.con.println("Bad command");
     return false;
@@ -524,7 +520,6 @@ class DungeonRun {
   /** 1000:B93F: the dungeon's stone lies on its altar cell; +5 Honor and 200 XP to the Avatar. */
   private async altarStone() {
     const id = this.loc.id, bit = 1 << (id - FIRST_DUNGEON);
-    if (id === ABYSS && onAbyssAltar) { await onAbyssAltar(this.g); return; }
     if (id === HYTHLOTH || id === ABYSS || (this.s.stones & bit)) { this.con.print("\nYou find Nothing!\n"); return; }
     this.s.stones |= bit;
     this.con.print(`\nYou find the ${STONE_NAMES[id - FIRST_DUNGEON]} stone!\n`);

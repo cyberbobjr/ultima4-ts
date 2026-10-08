@@ -1,4 +1,5 @@
 // Title sequence and character creation (TITLE.EXE), see src/intro/.
+import { now } from "./clock";
 import { readSave, writeSave } from "../io/gamefs";
 import { assets } from "../assets/store";
 import { decodeSave, encodeSave, type SaveGame } from "../formats/save";
@@ -15,7 +16,7 @@ export async function runIntro(g: Game): Promise<SaveGame> {
   const keys = new Keys(g.input, scr);
   const title = new Title(scr, keys, data);
   await title.load();
-  const layer = g.layers.push({ name: "intro", fullscreen: true, draw: (r) => scr.draw(r, performance.now()) });
+  const layer = g.layers.push({ name: "intro", fullscreen: true, draw: (r) => scr.draw(r, now()) });
   try {
     let mode: "start" | "redraw" | "menu" = "start";
     for (;;) {

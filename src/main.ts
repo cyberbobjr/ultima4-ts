@@ -5,8 +5,8 @@ import { Input } from "./game/input";
 import { runIntro } from "./game/intro";
 import { installMagic } from "./game/magic";
 import { installItems } from "./game/items";
-import { installShrine } from "./game/shrine";
 import { setSeed } from "./game/rng";
+import { advanceClock, useManualClock } from "./game/clock";
 import { assets as store } from "./assets/store";
 import { setGameText } from "./data/text";
 import "./data/all-texts";
@@ -26,7 +26,6 @@ async function main() {
   if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game; // used by automated tests
   installMagic(game);
   installItems(game);
-  installShrine(game);
 
   const loop = () => {
     requestAnimationFrame(loop);
@@ -42,7 +41,8 @@ async function main() {
   const seed = import.meta.env.DEV ? new URLSearchParams(location.search).get("seed") : null;
   if (seed !== null) {
     setSeed(Number(seed));
-    (window as unknown as { __tick: (n?: number) => void }).__tick = (n = 1) => { for (let i = 0; i < n; i++) game.tick(); };
+    useManualClock();
+    (window as unknown as { __tick: (n?: number) => void }).__tick = (n = 1) => { for (let i = 0; i < n; i++) { game.tick(); advanceClock(250); } };
   } else setInterval(() => game.tick(), 250);
 
   // Dev shortcut for automated tests: ?skipintro starts directly from the original PARTY.SAV.

@@ -12,21 +12,13 @@ import { T } from "./tiles";
 import {
   addDrawHook, addXp, askKey, askPlayer, blankView, drawViewTile, flushKeys, gameMode, PixelLayer, sameText, shake, sleep,
 } from "./endgame/ui";
-import { addDungeonLight, dungeonSpellHooks } from "./magic";
+import { addDungeonLight } from "./magic";
+import { endsTurn, type UseEnv } from "./commands";
 import { runCodex } from "./endgame/codex";
 
-/**
- * Combat context for U)se (set by combat.ts around g.useItem() during a member's turn):
- * position of the member using the item, altar of a dungeon altar room (0 Truth, 1 Love, 2 Courage; DS:943E,
- * -1 elsewhere), whether the fight is in a dungeon room (mode 6), and a callback killing every monster
- * except Lord British (skull used in combat).
- */
-export const useContext: {
-  pos: { x: number; y: number } | null;
-  altar: number;
-  room: boolean;
-  killAll: (() => void) | null;
-} = { pos: null, altar: -1, room: false, killAll: null };
+/** Combat context of the U)se command being run (see UseEnv), or the defaults outside combat. */
+const NO_USE = { pos: null, altar: -1, room: false, killAll: null } as const;
+let useContext: { pos: UseEnv["pos"] | null; altar: number; room: boolean; killAll: (() => void) | null } = NO_USE;
 
 /** Horn effect char (1000:0553 sets DS:95A4 = 1 for 10 turns): no daemons spawn near the Humility shrine. */
 export const HORN_EFFECT = "\u0001";
@@ -144,7 +136,7 @@ async function useStone(g: Game) {
   const inRoom = mode === 4 && useContext.room;
   if (!inRoom && mode !== 3) say(g, "No place to Use them!\n");
   if (mode !== 3) { await altarStones(g); return; }
-  const h = dungeonSpellHooks, level = s.dngLevel;
+  const h = g.dungeon, level = s.dngLevel;
   if (s.location === 24 && h.cell?.(s.x, s.y, level) === 0xb0) {
     const QUESTION = ["Truth", "Love", "Courage", "Truth and Love", "Love and Courage", "Courage and Truth", "Truth, Love and Courage",
       "\nA voice rings out:  What Virtue exists independently of Truth, Love and Courage"]; // DS:0284
@@ -422,19 +414,26 @@ async function peerGem(g: Game) {
   say(g, "a Gem!\n");
   g.save.gems--;
   if (g.save.location < 0x11) await peerAtMap(g);
-  else await dungeonSpellHooks.peer?.();
+  else await g.dungeon.peer?.();
 }
 
 export function installItems(g: Game) {
-  // every command ends the turn on the overworld and in towns (1000:1C06); combat/dungeon loops do their own
-  const turn = (fn: (g: Game) => Promise<void> | void) => async () => {
-    await fn(g);
-    if (gameMode(g) < 3) g.endTurn();
-  };
-  g.useItem = turn(useItem);
-  g.search = turn(search);
-  g.peerGem = turn(peerGem);
-  g.newOrder = turn(newOrder);
-  g.fireCannon = turn(fireCannon);
-  g.igniteTorch = turn(igniteTorch);
+  const out = ["world", "town"] as const;
+  const cmd = (key: string, id: string, contexts: readonly ("world" | "town" | "dungeon" | "combat")[], fn: (g: Game) => Promise<void> | void) =>
+    ({ key, id, contexts, run: async (env: Parameters<typeof endsTurn>[0]) => { await fn(g); endsTurn(env); } });
+  g.commands.register(
+    cmd("u", "use", ["world", "town", "dungeon"], useItem),
+    {
+      key: "u", id: "use", contexts: ["combat"],
+      run: async (env) => {
+        useContext = env.use ?? NO_USE;
+        try { await useItem(g); } finally { useContext = NO_USE; }
+      },
+    },
+    cmd("s", "search", out, search),
+    cmd("p", "peer", out, peerGem),
+    cmd("n", "newOrder", ["world", "town", "dungeon"], newOrder),
+    cmd("f", "fire", out, fireCannon),
+    cmd("i", "ignite", out, igniteTorch),
+  );
 }
