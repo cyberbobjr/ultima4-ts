@@ -45,6 +45,7 @@ npm run dev         # browser only: http://127.0.0.1:1420
 npm run build       # type check + production bundle
 npm test            # unit tests (Vitest); format tests are skipped without the install
 node tools/scenarios.mjs [--ref]  # headless screenshot regression (dev server running)
+npx tsx tools/packs/upscale.ts --algo scale4x  # HD tile pack (Scale4x) in assets/packs/scale4x-derived, then pick it in Options
 ```
 
 Git Bash: `export PATH="/e/IdeaProjects/u4/.nodeenv/Scripts:$PATH"`, then the same commands.
@@ -68,7 +69,7 @@ automated tests); the game instance is exposed as `window.__game`.
 | `src/dungeon` | first-person dungeon view (three.js) and dungeon tables |
 | `src/config` | configuration (`config.json`) and its defaults |
 | `tests`, `tools/scenarios.mjs` | unit tests (Vitest) and headless screenshot regression scenarios |
-| `tools/packs` | tile pack tools (scaled packs, HD generation with a local ComfyUI, review sheets) |
+| `tools/packs` | tile pack tools: `upscale.ts` builds HD packs from the original tiles with pixel-art scaling (Scale2x/3x/4x) |
 | `src-tauri` | Tauri v2 shell: saves and configuration in the app data directory |
 | `docs` | reverse-engineering notes, translation guide |
 

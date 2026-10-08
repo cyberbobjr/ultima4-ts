@@ -47,6 +47,7 @@ npm run dev         # navigateur seul : http://127.0.0.1:1420
 npm run build       # vérification des types + bundle de production
 npm test            # tests unitaires (Vitest) ; ceux des formats sont ignorés sans installation
 node tools/scenarios.mjs [--ref]  # non-régression par captures headless (serveur de dev lancé)
+npx tsx tools/packs/upscale.ts --algo scale4x  # pack HD (Scale4x) dans assets/packs/scale4x-derived, à choisir dans Options
 ```
 
 Git Bash : `export PATH="/e/IdeaProjects/u4/.nodeenv/Scripts:$PATH"`, puis les mêmes commandes.
@@ -70,7 +71,7 @@ par les tests automatisés) ; l'instance du jeu est exposée dans `window.__game
 | `src/dungeon` | vue des donjons à la première personne (three.js) et tables des donjons |
 | `src/config` | configuration (`config.json`) et valeurs par défaut |
 | `tests`, `tools/scenarios.mjs` | tests unitaires (Vitest) et scénarios de non-régression par captures |
-| `tools/packs` | outils de packs de tuiles (agrandissement, génération HD avec un ComfyUI local, planches de revue) |
+| `tools/packs` | outils de packs de tuiles : `upscale.ts` produit des packs HD à partir des tuiles originales par agrandissement pixel-art (Scale2x/3x/4x) |
 | `src-tauri` | coquille Tauri v2 : sauvegardes et configuration dans le dossier de données de l'application |
 | `docs` | notes de rétro-ingénierie, guide de traduction |
 
