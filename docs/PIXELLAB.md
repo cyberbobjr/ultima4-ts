@@ -62,6 +62,31 @@ Bitforge 64×64, EGA palette forced, init = original ×4, strength 350 (terrain,
 Conclusion: worth it for people, monsters and their animations (≈ 110 tiles: classes, townsfolk, the 36
 monsters × 2–4 frames); terrain and places need another round of tuning (or keep Scale4x for them).
 
+## Terrain test (9 generations)
+
+1. **Bitforge, init = original tile, EGA palette forced, strength 150, "detailed shading / highly detailed /
+   lineless"** (grass, forest, hills, mountains, water, swamp): **failure**. The originals are mostly black
+   with a few coloured pixels; with the EGA palette forced the model produces dark, muddy textures, grey water,
+   and visible seams when tiled 3×3.
+2. **Bitforge, text only (no init image), free palette, same style options**, description ending with
+   "top-down game terrain tile, seamless tileable texture filling the whole square edge to edge, modern high
+   quality pixel art like Stardew Valley or Eastward, vibrant natural colors, soft shading, no border":
+   **clearly modern** — a lush grass meadow, a convincing forest canopy, a calm (a bit flat) sea; tiling 3×3
+   shows a visible repetition of the grass but no hard seams.
+
+What this means for a "2026" pack:
+- Terrain must be **redesigned, not redrawn**: free palette, text-driven, and generated as a **coherent set**
+  (grass, scrub, forest, hills, mountains, swamp, shallows, sea, deep sea, lava, the 4 shore corners, floors,
+  fields…) so neighbouring terrains match; `create-tiles-pro` (numbered descriptions in one call, style images)
+  or `create-tileset` (Wang transitions, e.g. grass↔sea for coasts) are the right tools — Pro cost.
+- Mixing new terrain with old tiles does not work: in the test pack, new grass and sea next to the old scrub and
+  shallows look like a patchwork.
+- Places, objects, people and monsters are drawn on **black** in the original; on colourful terrain they need
+  a **transparent background** and the renderer must draw the terrain under them (today one opaque tile per
+  square). That is an engine change (two tile layers: terrain, then objects/creatures; an `underlay` terrain per
+  place tile in `pack.json`) to do before generating such a pack.
+- Water and fields scroll in the engine: the sea tile must stay seamless vertically.
+
 ## Proposed pipeline (for a `pixellab-derived` pack)
 
 1. **Style anchor**: generate and hand-pick 3–4 key tiles (grass, castle, avatar, orc) with bitforge at
@@ -79,7 +104,7 @@ monsters × 2–4 frames); terrain and places need another round of tuning (or k
 
 ## Cost
 
-The account is on the trial: 40 generations (11 left after the tests and the pilot). A full pack is at least 256 bitforge
+The account is on the trial: 40 generations (2 left after the tests, the pilot and the terrain test). A full pack is at least 256 bitforge
 calls plus retries and animation work (Pro tools at 20–40 generations each), so it needs a paid plan; the
 free plan also runs **one job at a time**. Start with a pilot of ~20 tiles (one of each category) to
 validate the settings before generating the rest.
