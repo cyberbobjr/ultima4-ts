@@ -189,13 +189,17 @@ export async function askMember(g: Game, prompt: string): Promise<number> {
 
 /** 1000:EC39: case-insensitive compare of at most `n` characters, stopping at the end of either string. */
 export function strnieq(a: string, b: string, n: number): boolean {
+  // accents are ignored too, so translated words can be typed without them ("epee" = "épée")
   for (let i = 0; i < n; i++) {
-    const x = (a[i] ?? "").toLowerCase(), y = (b[i] ?? "").toLowerCase();
+    const x = fold(a[i] ?? ""), y = fold(b[i] ?? "");
     if (x !== y) return false;
     if (!x) return true;
   }
   return true;
 }
+
+/** One character, lower case and without its accent. */
+const fold = (c: string) => c.normalize("NFD").charAt(0).toLowerCase();
 
 /** strnieq with the usual length of typed answers. */
 export const sameText = (a: string, b: string, n = 16) => strnieq(a, b, n);

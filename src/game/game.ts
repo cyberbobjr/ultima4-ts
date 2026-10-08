@@ -184,7 +184,7 @@ export class Game {
       if (k.key === "Enter") { this.con.newline(); return s; }
       if (k.key === "Backspace") { if (s) { s = s.slice(0, -1); this.con.backspace(); } continue; }
       if (k.key === "Escape") { this.con.newline(); return ""; }
-      if (k.key.length === 1 && s.length < maxLen && k.key >= " " && k.key <= "~") { s += k.key; this.con.print(k.key); }
+      if (k.key.length === 1 && s.length < maxLen && k.key >= " " && k.key.charCodeAt(0) !== 0x7f) { s += k.key; this.con.print(k.key); }
     }
   }
 
