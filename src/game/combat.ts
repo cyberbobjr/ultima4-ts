@@ -29,7 +29,7 @@ export interface CombatResult {
 
 import { rand8 } from "./rng";
 export { rand8 };
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import { sleep } from "./prompts";
 
 const WALKABLE = new Set(WALKABLE_TILES);
 

@@ -13,42 +13,14 @@ import {
 } from "../data/tables";
 import { ARMOUR, FOOD, GUILD, HAWKWIND, HEALER, HORSES, INN, REAGENTS, TALK, TAVERN, WEAPONS } from "./town/strings";
 import {
-  askLetter, askMember, askYN, delay, nl, pause, putc, putNum, readLine, readNumber, say, strnieq, waitKey,
-} from "./town/io";
+  askKey, askMember, askYN, delay, nl, pause, putc, putNum, readLine, readNumber, say, strnieq, waitKey,
+} from "./prompts";
+import { karmaDec, karmaInc, Virtue } from "./karma";
+import { canAct, isAlive } from "./party";
 
 type Player = Game["save"]["players"][number];
 
-export const enum Virtue { Honesty, Compassion, Valor, Justice, Sacrifice, Honor, Spirituality, Humility }
 
-
-// ---------------------------------------------------------------- karma
-
-/** 1000:09F8: no change once elevated (0), else +n capped at 99. */
-export function karmaInc(g: Game, v: number, n: number) {
-  const k = g.save.karma;
-  if (k[v] !== 0) k[v] = Math.min(99, k[v] + n);
-}
-
-/** 1000:0A17: an elevated virtue (0) falls back to 99 with "Thou hast lost an Eighth!"; floor 1. */
-export async function karmaDec(g: Game, v: number, n: number) {
-  const k = g.save.karma;
-  if (k[v] === 0) { k[v] = 99; await say(g, TALK.lostEighth); }
-  const old = k[v];
-  k[v] = old - n;
-  if (old < n || k[v] === 0) k[v] = 1;
-}
-
-/** Gains throttled to one per 16 moves (DS:0x9330 = save.lastVirtue, compared with moves >> 4). */
-export function virtueReady(g: Game): boolean {
-  const m = Math.floor(g.save.moves / 16);
-  return m > 0xffff || m !== g.save.lastVirtue;
-}
-export function markVirtue(g: Game) { g.save.lastVirtue = Math.floor(g.save.moves / 16) & 0xffff; }
-
-/** 1000:0E82: member alive and awake enough to act ('G' or 'P'). */
-export function isAlive(p: Player) { return p.status === "G" || p.status === "P"; }
-/** 1000:0E4E: 'G', 'P' or 'S'. */
-export function isConscious(p: Player) { return p.status === "G" || p.status === "P" || p.status === "S"; }
 
 // ---------------------------------------------------------------- inventory panel
 
@@ -198,7 +170,7 @@ async function equipSell(g: Game, d: EquipDesc, maxLetter: string, t: {
   await say(g, t.intro);
   let answer = "Y";
   for (;;) {
-    const item = (await askLetter(g, maxLetter, "B", d.s.youSell)) - 0x41;
+    const item = (await askKey(g, d.s.youSell, "B", maxLetter)) - 0x41;
     nl(g);
     if (item < 1) return;
     let text: string;
@@ -256,7 +228,7 @@ async function weaponShop(g: Game, town: TownId) {
       }
       let item: number;
       for (;;) {
-        item = (await askLetter(g, "O", "B", S.interest)) - 0x41;
+        item = (await askKey(g, S.interest, "B", "O")) - 0x41;
         if (item < 1 || shop.items.includes(item)) break;
       }
       if (item < 0) break;
@@ -300,7 +272,7 @@ async function armourShop(g: Game, town: TownId) {
       nl(g);
       let item: number;
       for (;;) {
-        item = (await askLetter(g, "G", "B", S.what)) - 0x41;
+        item = (await askKey(g, S.what, "B", "G")) - 0x41;
         if (item < 1 || shop.items.includes(item)) break;
       }
       if (item < 0) return;
@@ -339,7 +311,7 @@ async function reagentShop(g: Game, town: TownId) {
     let again: string;
     do {
       await say(g, S.list);
-      const r = (await askLetter(g, "F", "A", S.interest)) - 0x41;
+      const r = (await askKey(g, S.interest, "A", "F")) - 0x41;
       if (r < 0) break;
       const price = shop.prices[r];
       await say(g, S.weSell, S.names[r], S.for);
@@ -521,7 +493,7 @@ async function inn(g: Game, town: TownId) {
   nl(g);
   let room = def.rooms[0];
   if (def.rooms.length > 1) {
-    const b = (await askLetter(g, "3", "1", S.beds)) - 0x31;
+    const b = (await askKey(g, S.beds, "1", "3")) - 0x31;
     if (b < 0) return;
     room = def.rooms[b];
   } else {
@@ -542,7 +514,7 @@ async function innSleep(g: Game, innIndex: number, x: number, y: number) {
   await delay(1);
   g.setPos(x, y);
   await delay(1);
-  for (const p of g.members) if (isConscious(p)) p.status = "S";
+  for (const p of g.members) if (isAlive(p)) p.status = "S";
   s.transport = T.CORPSE; // party drawn as sleepers
   await delay(5);
   s.transport = T.AVATAR;
@@ -552,7 +524,7 @@ async function innSleep(g: Game, innIndex: number, x: number, y: number) {
     p.hp = Math.min(p.hpMax, p.hp + INN_HEAL.base + INN_HEAL.randMul * (rand8() % INN_HEAL.randMod));
   }
   mpRegen(g);
-  if (isConscious(s.players[0]) && (rand8() & 7) === 0) await nightAmbush(g);
+  if (isAlive(s.players[0]) && (rand8() & 7) === 0) await nightAmbush(g);
   else if (innIndex === 5 && (rand8() & 3) === 0) {
     // Skara Brae: a ghost (tile 0x9C, dialogue 16) appears next to the bed in NPC slot 0
     const town = g.map as TownMap;
@@ -565,7 +537,7 @@ async function innSleep(g: Game, innIndex: number, x: number, y: number) {
 /** 1000:13B6: one tick of MP regeneration (max by class, capped at 99). */
 function mpRegen(g: Game) {
   for (const p of g.members) {
-    if (!isConscious(p)) continue;
+    if (!isAlive(p)) continue;
     const max = Math.min(99, [p.int * 2, p.int, 0, p.int + (p.int >> 1), p.int >> 1, p.int, p.int, 0][p.klass] ?? 0);
     p.mp = Math.min(max, p.mp + 1);
   }
@@ -615,7 +587,7 @@ async function healer(g: Game, town: TownId) {
     if (await askYN(g) !== "Y") break;
     nl(g);
     await say(g, keeper, S.perform);
-    const c = await askLetter(g, "C", "A", S.need);
+    const c = await askKey(g, S.need, "A", "C");
     if (c < 0x41) break;
     const p = await who();
     if (p && c === 0x41) {
@@ -678,7 +650,7 @@ async function guild(g: Game, town: TownId) {
     if (await askYN(g) !== "Y") break;
     nl(g);
     await say(g, def.keeper, S.gots);
-    const i = (await askLetter(g, "D", "A", S.wat)) - 0x41;
+    const i = (await askKey(g, S.wat, "A", "D")) - 0x41;
     if (i < 0) break;
     nl(g);
     await say(g, S.desc[i]);
@@ -727,7 +699,7 @@ async function horses(g: Game) {
 
 async function hawkwind(g: Game) {
   const S = HAWKWIND, s = g.save, me = s.players[0].name;
-  if (!isAlive(s.players[0])) { await say(g, S.only, me, S.ret, me, S.revived); return; }
+  if (!canAct(s.players[0])) { await say(g, S.only, me, S.ret, me, S.revived); return; }
   await say(g, S.welcome, me, S.intro);
   await waitKey(g, true);
   let q = "";

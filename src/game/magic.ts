@@ -9,9 +9,9 @@ import { isUndead, rand8 } from "./combat";
 import type { Game } from "./game";
 import { DIRS, setTile, tileAt, type Dir } from "./maps";
 import { T } from "./tiles";
-import {
-  addDrawHook, askKey, askPlayer, canAct, clearStatusRows, drawStatusTitle, gameMode, isAlive, shake,
-} from "./endgame/ui";
+import { addDrawHook, clearStatusRows, drawStatusTitle, gameMode, shake } from "./endgame/ui";
+import { askKey, askMember as askPlayer } from "./prompts";
+import { canAct, isAlive } from "./party";
 import { peerAtMap } from "./items";
 
 /**

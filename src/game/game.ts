@@ -17,6 +17,8 @@ import { HORN_EFFECT } from "./items";
 import { LayerStack, type StatusPanel } from "../ui/layers";
 import { CommandRegistry, type Command, type CommandContext } from "./commands";
 import { meditateAt } from "./shrine";
+import { adjustKarma, karmaDec, karmaInc } from "./karma";
+import { askMember } from "./prompts";
 import type { DungeonHooks } from "./magic";
 import { runDungeon } from "./dungeon";
 
@@ -228,19 +230,9 @@ export class Game {
 
   damage(p: PlayerRecord, n: number) { this.damagePlayer(p, n); }
 
-  /** karma_inc (1000:09F8): elevated virtues (0) never rise; cap 99. */
-  karmaInc(v: number, n: number) {
-    const k = this.save.karma;
-    if (k[v] === 0 || n <= 0) return;
-    k[v] = Math.min(99, k[v] + n);
-  }
-
-  /** karma_dec (1000:0A17): an elevated virtue is lost; floor 1. */
-  karmaDec(v: number, n: number) {
-    const k = this.save.karma;
-    if (k[v] === 0) { k[v] = 99; this.con.println("\nThou hast lost\nan Eighth!"); }
-    k[v] = k[v] - n <= 0 ? 1 : k[v] - n;
-  }
+  /** Karma (karma.ts): 1000:09F8 / 1000:0A17. */
+  karmaInc(v: number, n: number) { karmaInc(this, v, n); }
+  karmaDec(v: number, n: number) { karmaDec(this, v, n); }
 
   /** Active timed spell effect DS:0x95A4 ('P','J','N','Q' or null) and its countdown DS:0x946E. */
   spellEffect: string | null = null;
@@ -551,12 +543,10 @@ export class Game {
     this.con.println(`A:${ARMOURS[p.armour].name}`);
   }
 
+  /** 1000:1287 (prompts.ts); -1 when cancelled or "0". */
   async askMember(prompt: string): Promise<number> {
-    this.con.print(prompt);
-    const n = parseInt(await this.getKey(), 10);
-    if (!(n >= 1 && n <= this.save.members)) { this.con.println(""); return -1; }
-    this.con.println(String(n));
-    return n - 1;
+    const i = await askMember(this, prompt);
+    return i < 0 ? -1 : i;
   }
 
   /** R)eady a weapon (1000:7631): letter A..P from the inventory, class mask bit 0x80 >> class. */
@@ -788,10 +778,7 @@ export class Game {
   /** Runs a tactical combat; see combat.ts. */
   fight(req: CombatRequest): Promise<CombatResult> { return runCombat(this, req); }
 
-  /** Signed convenience wrapper over karmaInc/karmaDec. */
-  adjustKarma(virtue: number, delta: number) {
-    if (delta >= 0) this.karmaInc(virtue, delta); else this.karmaDec(virtue, -delta);
-  }
+  adjustKarma(virtue: number, delta: number) { adjustKarma(this, virtue, delta); }
 
   private locate() {
     this.con.println("Locate position");

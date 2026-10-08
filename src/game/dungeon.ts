@@ -38,7 +38,8 @@ const IDLE_MS = 8000;
 import { rand8 as rnd } from "./rng";
 /** Sign of a random signed byte (FUN_1000_4fd7 on FUN_1000_1771). */
 const rndSign = () => { const v = (rnd() << 24) >> 24; return v < 0 ? -1 : v > 0 ? 1 : 0; };
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+import { sleep, askMember } from "./prompts";
+import { canAct } from "./party";
 
 interface Wanderer { tile: number; x: number; y: number; px: number; py: number; level: number; }
 
@@ -267,14 +268,13 @@ class DungeonRun {
     }
   }
 
-  private canAct(p: PlayerRecord) { return p.status === "G" || p.status === "P"; } // 1000:0E82
 
   private poisonField() { // 1000:91D1
     for (const p of this.members.slice().reverse()) if (p.status === "G" && (rnd() & 7) === 0) p.status = "P";
   }
 
   private sleepField() { // 1000:919A
-    for (const p of this.members.slice().reverse()) if (this.canAct(p) && (rnd() & 3) === 0) p.status = "S";
+    for (const p of this.members.slice().reverse()) if (canAct(p) && (rnd() & 3) === 0) p.status = "S";
   }
 
   /** 1000:1584 underground: each living member, 50%: 10 + rand%15 damage. */
@@ -428,15 +428,10 @@ class DungeonRun {
 
   // ------------------------------------------------------------------ commands
 
-  /** 1000:1287: "Who ...?" party member prompt; -1 when cancelled. */
+  /** 1000:1287: "Who ...?" party member prompt; -1 when cancelled (or "0"). */
   private async askPlayer(prompt: string): Promise<number> {
-    if (this.s.members === 1) { this.con.println(prompt + "1"); return 0; }
-    this.con.print(prompt);
-    const k = await this.g.getKey();
-    const n = parseInt(k, 10);
-    if (n >= 1 && n <= this.s.members) { this.con.println(String(n)); return n - 1; }
-    this.con.println("");
-    return -1;
+    const i = await askMember(this.g, prompt);
+    return i < 0 ? -1 : i;
   }
 
   private async getChest() { // 1000:72EC / 722F
@@ -444,7 +439,7 @@ class DungeonRun {
     const i = await this.askPlayer("Who opens?");
     if (i < 0) return;
     const p = this.members[i];
-    if (!this.canAct(p)) { this.con.println("Disabled!"); return; }
+    if (!canAct(p)) { this.con.println("Disabled!"); return; }
     if (this.here !== 0x40) { this.con.println("Not Here!"); return; }
     this.setCell(this.s.x, this.s.y, 0);
     this.chestTrap(p);
@@ -491,7 +486,7 @@ class DungeonRun {
     const i = await this.askPlayer("Who touches?");
     if (i < 0) return;
     const p = this.members[i];
-    if (!this.canAct(p)) { this.con.print("\nDisabled!\n"); return; }
+    if (!canAct(p)) { this.con.print("\nDisabled!\n"); return; }
     const d = this.loc.id - FIRST_DUNGEON;
     this.setCell(this.s.x, this.s.y, 0);
     this.g.damage(p, ORB_DAMAGE[d] * 100);
@@ -507,7 +502,7 @@ class DungeonRun {
     const i = await this.askPlayer("Who drinks?");
     if (i < 0) return;
     const p = this.members[i];
-    if (!this.canAct(p)) { this.con.print("\nDisabled!\n"); return; }
+    if (!canAct(p)) { this.con.print("\nDisabled!\n"); return; }
     switch (this.here & 0xf) {
       case 1: if (p.hp !== p.hpMax) { this.con.print("\nAhh-Refreshing!\n"); p.hp = p.hpMax; return; } break;
       case 2: this.con.print("\nBleck--Nasty!\n"); this.g.damage(p, 100); return;

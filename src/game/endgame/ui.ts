@@ -6,6 +6,7 @@ import type { PlayerRecord } from "../../formats/save";
 import type { Renderer } from "../../render/renderer";
 import { TILE, VIEW_TILES, VIEW_X, VIEW_Y } from "../../render/renderer";
 import type { Game } from "../game";
+import { sleep } from "../prompts";
 
 /** Game mode DS:946A: 1 overworld, 2 town, 3 dungeon, 4 combat (6 = dungeon room, reported as 4 here). */
 export function gameMode(g: Game): number {
@@ -15,55 +16,6 @@ export function gameMode(g: Game): number {
   return g.map.kind === "town" ? 2 : 1;
 }
 
-export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
-/** One unit of FUN_1000_16cd (the overworld input wait is 0x19 units = 8 s). */
-export const TICK_MS = 320;
-
-/** FUN_1000_16cd(n, 0): uninterruptible delay. */
-export const ticks = (n: number) => sleep(n * TICK_MS);
-
-/** FUN_1000_2F7E: wait up to 15 units or until a key, which is consumed. */
-export async function pause(g: Game) { await g.input.next(15 * TICK_MS); }
-
-/** FUN_1000_1804: flush the keyboard buffer. */
-export function flushKeys(g: Game) { g.input.clear(); }
-
-/**
- * FUN_1000_11F9: prompt for one key in [lo, hi] (letters folded to upper case), echoed with a newline.
- * Returns its char code, -1 for Enter/Space, -2 for Escape. Other keys are ignored.
- */
-export async function askKey(g: Game, prompt: string, lo: string, hi: string): Promise<number> {
-  g.con.print(prompt);
-  for (;;) {
-    const k = await g.getKey();
-    if (k === "Enter" || k === " ") { g.con.println(""); return -1; }
-    if (k === "Escape") { g.con.println(""); return -2; }
-    if (k.length !== 1) continue;
-    const c = k.toUpperCase();
-    if (c >= lo && c <= hi) { g.con.println(c); return c.charCodeAt(0); }
-  }
-}
-
-/** FUN_1000_1287: "Who:" style party member prompt; a party of one answers 1 automatically. */
-export async function askPlayer(g: Game, prompt: string): Promise<number> {
-  if (g.save.members === 1) { g.con.println(prompt + "1"); return 0; }
-  const c = await askKey(g, prompt, "0", String(g.save.members));
-  if (c === 0x30) return -2;
-  if (c < 0) return -1;
-  return c - 0x31;
-}
-
-/** FUN_1000_0E82: member able to act (Good or Poisoned). */
-export const canAct = (p: PlayerRecord) => p.status === "G" || p.status === "P";
-/** FUN_1000_0E4E: member alive (Good, Poisoned or Sleeping). */
-export const isAlive = (p: PlayerRecord) => p.status === "G" || p.status === "P" || p.status === "S";
-
-/** FUN_1000_097D */
-export function addXp(p: PlayerRecord, n: number) { p.xp = Math.min(9999, p.xp + n); }
-
-/** Case-insensitive compare of typed text (FUN_1000_EC39 on n characters). */
-export const sameText = (a: string, b: string, n = 16) => a.slice(0, n).toLowerCase() === b.slice(0, n).toLowerCase();
 
 // ------------------------------------------------------------------ drawing layers
 

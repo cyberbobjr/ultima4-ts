@@ -2,7 +2,8 @@
 // altar of the 8th Abyss level. Failures eject the party to the overworld (1000:2F9D, positions DS:0BF0/0BFE).
 import { CODEX_EJECT_POSITIONS, CODEX_FINAL_ANSWER, CODEX_QUESTIONS, CODEX_WORD_OF_PASSAGE } from "../../data/tables";
 import type { Game } from "../game";
-import { addDrawHook, blankView, flushKeys, loadPicture, pause, PixelLayer, sameText, shake, ticks } from "./ui";
+import { addDrawHook, blankView, loadPicture, PixelLayer, shake } from "./ui";
+import { flushKeys, pauseUnits as pause, sameText, ticks } from "../prompts";
 
 /** Thrown to unwind the codex after an ejection (the original longjmps back to the main loop). */
 class Ejected extends Error {}

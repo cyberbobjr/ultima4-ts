@@ -9,9 +9,9 @@ import type { Game } from "./game";
 import { LOCATIONS, VIRTUES } from "./locations";
 import { DIRS, tileAt } from "./maps";
 import { T } from "./tiles";
-import {
-  addDrawHook, addXp, askKey, askPlayer, blankView, drawViewTile, flushKeys, gameMode, PixelLayer, sameText, shake, sleep,
-} from "./endgame/ui";
+import { addDrawHook, blankView, drawViewTile, gameMode, PixelLayer, shake } from "./endgame/ui";
+import { askKey, askMember as askPlayer, flushKeys, sameText, sleep } from "./prompts";
+import { addXp } from "./party";
 import { addDungeonLight } from "./magic";
 import { endsTurn, type UseEnv } from "./commands";
 import { runCodex } from "./endgame/codex";

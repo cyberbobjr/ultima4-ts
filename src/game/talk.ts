@@ -7,8 +7,9 @@ import type { Npc, TownMap } from "./maps";
 import { T } from "./tiles";
 import { JOIN_RULES } from "../data/tables";
 import { LB, TALK } from "./town/strings";
-import { askYN, nl, pause, putc, putNum, readLine, readNumber, say, sayRaw, strnieq, waitKey } from "./town/io";
-import { karmaDec, karmaInc, markVirtue, runShop, virtueReady, Virtue } from "./shops";
+import { askYN, nl, pause, putc, putNum, readLine, readNumber, say, sayRaw, strnieq, waitKey } from "./prompts";
+import { runShop } from "./shops";
+import { karmaDec, karmaInc, markVirtue, virtueReady, Virtue } from "./karma";
 
 const base = (tile: number) => tile & ~1;
 

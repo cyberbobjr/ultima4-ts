@@ -1,8 +1,9 @@
-// Console text output and keyboard prompts reproducing the AVATAR.EXE primitives used by the
-// conversations and vendors (print 1000:0B38, putchar 1000:0C9F, newline 1000:2230, line input
-// 1000:1445, number input 1000:169C, Y/N 1000:162F, letter choice 1000:11F9, member choice 1000:1287).
-import type { Game } from "../game";
-import { CON_W } from "../console";
+// Console text output, keyboard prompts and waits reproducing the AVATAR.EXE primitives
+// (print 1000:0B38, putchar 1000:0C9F, newline 1000:2230, line input 1000:1445, number input 1000:169C,
+// Y/N 1000:162F, key choice 1000:11F9, member choice 1000:1287, delays 1000:16CD). One implementation
+// for the whole engine.
+import type { Game } from "./game";
+import { CON_W } from "./console";
 
 /** Current column in the message area. */
 function col(g: Game): number {
@@ -75,8 +76,22 @@ export async function pause(g: Game, seconds = 10) {
 
 /** 1000:16CD with no key check: fixed delay. */
 export function delay(seconds: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, seconds * 1000));
+  return sleep(seconds * 1000);
 }
+
+export const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+/** One unit of FUN_1000_16cd (the overworld input wait is 0x19 units = 8 s). */
+export const TICK_MS = 320;
+
+/** FUN_1000_16cd(n, 0): uninterruptible delay. */
+export const ticks = (n: number) => sleep(n * TICK_MS);
+
+/** FUN_1000_2F7E: wait up to 15 units or until a key, which is consumed. */
+export async function pauseUnits(g: Game, units = 15) { await g.input.next(units * TICK_MS); }
+
+/** FUN_1000_1804: flush the keyboard buffer. */
+export function flushKeys(g: Game) { g.input.clear(); }
 
 /** 1000:17F4: waits for a key (flushes pending keys first when `flush`, as 1000:1804 does). */
 export async function waitKey(g: Game, flush = false): Promise<string> {
@@ -142,10 +157,11 @@ export async function askYN(g: Game): Promise<string> {
 }
 
 /**
- * 1000:11F9: prints `prompt`, reads one key (upper-cased, echoed) and repeats until it lies in
- * [min, max]. Enter/space -> -1, Esc -> -2. Returns the character code.
+ * 1000:11F9: prints `prompt`, reads one key (upper-cased, echoed, then a newline) and repeats with a
+ * beep until it lies in [lo, hi]. Enter/space -> -1, Esc -> -2. Returns the character code.
  */
-export async function askLetter(g: Game, max: string, min: string, prompt: string): Promise<number> {
+export async function askKey(g: Game, prompt: string, lo: string, hi: string): Promise<number> {
+  const max = hi, min = lo;
   let first = true;
   for (;;) {
     if (!first) beep();
@@ -165,7 +181,7 @@ export async function askLetter(g: Game, max: string, min: string, prompt: strin
 export async function askMember(g: Game, prompt: string): Promise<number> {
   const n = g.save.members;
   if (n === 1) { await say(g, prompt); await say(g, "1\n"); return 0; }
-  const c = await askLetter(g, String.fromCharCode(0x30 + n), "0", prompt);
+  const c = await askKey(g, prompt, "0", String.fromCharCode(0x30 + n));
   if (c === 0x30) return -2;
   if (c < 0) return -1;
   return c - 0x31;
@@ -180,3 +196,6 @@ export function strnieq(a: string, b: string, n: number): boolean {
   }
   return true;
 }
+
+/** strnieq with the usual length of typed answers. */
+export const sameText = (a: string, b: string, n = 16) => strnieq(a, b, n);

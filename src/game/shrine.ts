@@ -3,7 +3,8 @@ import { assets } from "../assets/store";
 import { MANTRAS, MEDITATION, SHRINE_VISIONS, SHRINES } from "../data/tables";
 import type { Game } from "./game";
 import { VIRTUES } from "./locations";
-import { addDrawHook, askKey, blankView, flushKeys, loadPicture, PixelLayer, sameText, showTiles, ticks } from "./endgame/ui";
+import { addDrawHook, blankView, loadPicture, PixelLayer, showTiles } from "./endgame/ui";
+import { askKey, flushKeys, sameText, ticks } from "./prompts";
 
 const SPIRITUALITY = 6;
 
