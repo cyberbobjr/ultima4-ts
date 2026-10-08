@@ -94,10 +94,8 @@ class DungeonRun {
     }, tween);
   }
 
-  private show3d() {
-    this.g.r.view3d = { scene: this.view.scene, camera: this.view.camera };
-    this.g.viewOverride = () => null;
-  }
+  /** Viewport layer: the 3D view, hidden (black) while a peer map is shown. */
+  scene3d() { return this.peer ? null : { scene: this.view.scene, camera: this.view.camera }; }
 
   /** Drawn after Game.draw: level and facing in the frame (FUN_1000_353d), peer map (FUN_1000_c23b). */
   hud() {
@@ -121,7 +119,6 @@ class DungeonRun {
   // ------------------------------------------------------------------ main loop (1000:84D2)
 
   async run(): Promise<void> {
-    this.show3d();
     this.refresh(false);
     // Spells and items act on the level through these hooks (magic.ts).
     const h = dungeonSpellHooks;
@@ -350,13 +347,10 @@ class DungeonRun {
   private async fight(arena: CombatMap, monsters: { tile: number; x: number; y: number }[], entryDir?: number): Promise<CombatResult["outcome"]> {
     this.fighting = true;
     const g = this.g;
-    g.r.view3d = null;
-    g.viewOverride = null;
     try {
       return (await g.fight({ arena, monsters, context: "dungeon", entryDir })).outcome;
     } finally {
       this.fighting = false;
-      this.show3d();
     }
   }
 
@@ -548,10 +542,8 @@ class DungeonRun {
       this.s.gems--;
     }
     this.peer = this.peerMap();
-    this.g.r.view3d = null;
     await this.g.getKey();
     this.peer = null;
-    this.show3d();
   }
 
   /** 1000:C23B: flood fill from the party over a 22x22 window (8-connected, walls stop it). */
@@ -590,15 +582,12 @@ export async function runDungeon(g: Game, loc: LocationDef): Promise<void> {
   // 1000:3F03 / 3EE4: start at (1,1) of level 1 facing East; the overworld position is kept in dngX/dngY.
   s.dngX = s.x; s.dngY = s.y;
   s.x = 1; s.y = 1; s.orientation = 2; s.dngLevel = 0;
-  // Game.draw has no HUD hook: wrap it on the instance to draw the level/direction and the peer map.
-  const baseDraw = g.draw;
-  g.draw = () => { baseDraw.call(g); run.hud(); };
+  // The 3D view in the viewport, the level/direction in the frame and the peer map.
+  const layer = g.layers.push({ name: "dungeon", view: () => null, scene3d: () => run.scene3d(), draw: () => run.hud() });
   try {
     await run.run();
   } finally {
-    Reflect.deleteProperty(g, "draw");
-    g.viewOverride = null;
-    g.r.view3d = null;
+    layer.remove();
     if (s.dngLevel !== SURFACE) { s.dngLevel = SURFACE; s.x = s.dngX; s.y = s.dngY; g.setPos(s.x, s.y); }
     run.dispose();
   }

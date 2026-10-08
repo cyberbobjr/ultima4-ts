@@ -50,7 +50,6 @@ async function main() {
     ? (await store.originalSave() ?? await store.newParty())
     : await runIntro(game);
   if (save.members === 0) { save.members = 1; save.players[0].name ||= "Avatar"; }
-  game.overlay = null;
   await game.start(save);
 }
 

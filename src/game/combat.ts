@@ -159,7 +159,7 @@ class Combat {
 
   async run(): Promise<CombatResult> {
     const g = this.g;
-    g.viewOverride = this.view;
+    const layer = g.layers.push({ name: "combat", view: this.view });
     try {
       for (;;) {
         for (const m of this.party) {
@@ -181,7 +181,7 @@ class Combat {
         if (!this.partyLeft) break;
       }
     } finally {
-      g.viewOverride = null;
+      layer.remove();
     }
     return this.finish();
   }

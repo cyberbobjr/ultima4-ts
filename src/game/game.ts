@@ -14,6 +14,7 @@ import { talkTo } from "./talk";
 import { creatureInfo, isNonEvil, rand8, runCombat, spawnGroup, type CombatApi, type CombatRequest, type CombatResult } from "./combat";
 import { loadArena } from "./arenas";
 import { HORN_EFFECT } from "./items";
+import { LayerStack, type StatusPanel } from "../ui/layers";
 import { runDungeon } from "./dungeon";
 
 export const CLASS_NAMES = ["Mage", "Bard", "Fighter", "Druid", "Tinker", "Paladin", "Ranger", "Shepherd"];
@@ -54,12 +55,8 @@ export class Game {
   objects: WorldObject[] = [];
   readonly con = new Console();
   private animTick = 0;
-  /** Full-screen picture shown instead of the game view (title, visions...). */
-  picture: Uint8Array | null = null;
-  /** Hook for other modes (combat, dungeon) to take over drawing of the map viewport. */
-  viewOverride: (() => number[] | null) | null = null;
-  /** Hook for full-screen modes (intro, visions, endgame): replaces the whole UI drawing. */
-  overlay: ((r: Renderer) => void) | null = null;
+  /** Modes (intro, combat, dungeon, shops, visions, endgame) draw through layers over the game screen. */
+  readonly layers = new LayerStack();
   private frameCanvas: HTMLCanvasElement;
   private openedDoors: { x: number; y: number; turns: number }[] = [];
 
@@ -235,8 +232,6 @@ export class Game {
   spellEffect: string | null = null;
   /** Party member whose combat turn it is (-1 outside combat). */
   activeMember = -1;
-  /** Inventory panel replacing the party list (shops, Z)tats lists). */
-  statsView: { title: string; rows: string[] } | null = null;
   private spellTurns = 0;
   setSpellEffect(e: string, turns: number) { this.spellEffect = e; this.spellTurns = turns; }
   tickEffects() { if (this.spellEffect && --this.spellTurns <= 0) this.spellEffect = null; }
@@ -649,7 +644,6 @@ export class Game {
       this.save.location = loc.id;
       await runDungeon(this, loc);
       this.save.location = 0;
-      this.r.view3d = null;
       return;
     }
     await this.enterTown(loc, 0);
@@ -880,22 +874,28 @@ export class Game {
 
   draw() {
     const r = this.r;
-    if (this.overlay) { r.setView(null); this.overlay(r); return; }
-    if (this.picture) {
+    const { base, layers } = this.layers.visible();
+    const drawLayers = () => { for (const l of layers) l.draw?.(r); };
+    if (!base || !this.save || !this.map) {
       r.setView(null);
-      r.drawPicture(this.picture);
+      r.view3d = null;
+      if (base) r.ui.drawImage(this.frameCanvas, 0, 0);
+      drawLayers();
       return;
     }
     r.ui.drawImage(this.frameCanvas, 0, 0);
     r.clearRect(VIEW_X, VIEW_Y, VIEW_TILES * TILE, VIEW_TILES * TILE);
-    if (!this.save || !this.map) { r.setView(null); return; }
-    r.setView(this.viewOverride ? this.viewOverride() : this.viewTiles());
+    // viewport: the topmost layer providing tiles or a 3D scene, else the map
+    let viewLayer = null;
+    for (let i = layers.length - 1; i >= 0 && !viewLayer; i--) if (layers[i].view || layers[i].scene3d) viewLayer = layers[i];
+    r.view3d = viewLayer?.scene3d?.() ?? null;
+    r.setView(viewLayer ? viewLayer.view?.() ?? null : this.viewTiles());
 
     // moons
     r.drawGlyph(0x14 + this.save.trammelPhase, 11, 0);
     r.drawGlyph(0x14 + this.save.feluccaPhase, 12, 0);
     // party list, or an inventory panel set by shops (title on row 0, 8 rows of 16 chars)
-    const sv = this.statsView;
+    const sv: StatusPanel | null = this.layers.top("status")?.() ?? null;
     if (sv) {
       r.fillRect(CON_COL * 8, 0, 16 * 8, 8, 0);
       r.drawText(sv.title.slice(0, 16), CON_COL + ((16 - Math.min(16, sv.title.length)) >> 1), 0);
@@ -926,5 +926,6 @@ export class Game {
     this.con.lines.forEach((line, i) => r.drawText(line, CON_COL, CON_ROW + i));
     const last = this.con.lines.length - 1;
     if (this.con.cursor && this.con.lines[last].length < 16) r.drawGlyph(0x1c + (this.animTick & 3), CON_COL + this.con.lines[last].length, CON_ROW + last);
+    drawLayers();
   }
 }

@@ -1,4 +1,4 @@
-﻿// Headless regression scenarios: replays scripted inputs on a seeded game and compares
+// Headless regression scenarios: replays scripted inputs on a seeded game and compares
 // canvas screenshots against a reference run.
 //
 //   node tools/scenarios.mjs --ref        record references   (test-output/scenarios/ref)
@@ -25,6 +25,9 @@ export const SCENARIOS = {
   combat: ["eval:void __game.worldFight({ tile: 0xc0, x: __game.px, y: __game.py - 1 })", "wait:1200", "shot",
     "a", "ArrowUp", "wait:1500", "shot", "Space", "wait:1500", "shot"],
   locate: ["l", "wait:300", "shot", "p", "wait:300", "shot"],
+  // M)ix: spell list then reagent list in the status panel; shrine of Honesty: mantra prompt
+  mix: ["m", "wait:400", "shot", "a", "wait:400", "shot", "Escape", "Escape", "Enter", "wait:400", "shot"],
+  shrine: ["eval:__game.save.runes = 0xff", "eval:void __game.enterShrine(0)", "wait:1500", "shot", "Enter", "wait:800", "shot", "type:ahm", "Enter", "wait:2500", "shot"],
   // title screen (any key skips the opening animation), then a new game: name, sex, story pages, first dilemma
   intro: ["wait:1500", "Enter", "wait:1500", "shot"],
   introNew: ["Enter", "wait:1500", "i", "wait:800", "shot", "type:Iolo", "Enter", "wait:300", "m", "wait:800", "shot",

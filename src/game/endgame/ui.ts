@@ -67,34 +67,25 @@ export const sameText = (a: string, b: string, n = 16) => a.slice(0, n).toLowerC
 
 // ------------------------------------------------------------------ drawing layers
 
-/**
- * Adds a drawing pass after Game.draw (same instance-wrapping technique as dungeon.ts).
- * Returns a function restoring the previous draw.
- */
+/** Adds a drawing pass over the game screen (a layer). Returns the function removing it. */
 export function addDrawHook(g: Game, fn: (r: Renderer) => void): () => void {
-  const own = Object.prototype.hasOwnProperty.call(g, "draw");
-  const prev = g.draw;
-  g.draw = () => { prev.call(g); fn(g.r); };
-  return () => { if (own) g.draw = prev; else Reflect.deleteProperty(g, "draw"); };
+  const layer = g.layers.push({ name: "draw", draw: fn });
+  return () => layer.remove();
 }
 
 const BLACK_VIEW: number[] = new Array(VIEW_TILES * VIEW_TILES).fill(-1);
 
 /** FUN_1000_2246: blank map viewport (also hides the dungeon 3D view). Returns the restore function. */
 export function blankView(g: Game): () => void {
-  const prevView = g.viewOverride, prev3d = g.r.view3d;
-  g.viewOverride = () => BLACK_VIEW;
-  g.r.view3d = null;
-  return () => { g.viewOverride = prevView; g.r.view3d = prev3d; };
+  const layer = g.layers.push({ name: "blank", view: () => BLACK_VIEW });
+  return () => layer.remove();
 }
 
 /** Shows an arbitrary 11x11 tile view (e.g. SHRINE.CON) in the viewport. Returns the restore function. */
 export function showTiles(g: Game, tiles: ArrayLike<number>): () => void {
-  const prevView = g.viewOverride, prev3d = g.r.view3d;
   const view = Array.from(tiles);
-  g.viewOverride = () => view;
-  g.r.view3d = null;
-  return () => { g.viewOverride = prevView; g.r.view3d = prev3d; };
+  const layer = g.layers.push({ name: "tiles", view: () => view });
+  return () => layer.remove();
 }
 
 /** A 320x200 indexed layer drawn over the screen; colour 0 is transparent (pictures are OR-ed by EGA.DRV). */

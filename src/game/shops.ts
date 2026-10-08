@@ -1,6 +1,7 @@
 // Vendors reached by talking across a shop counter (dispatcher 1000:A686, handlers DS:0x2D54),
 // Hawkwind, and the karma helpers shared with the conversations.
 import type { Game } from "./game";
+import type { LayerHandle, StatusPanel } from "../ui/layers";
 import { rand8 } from "./rng";
 import type { TownMap } from "./maps";
 import { T } from "./tiles";
@@ -54,12 +55,15 @@ export function isConscious(p: Player) { return p.status === "G" || p.status ===
 /**
  * Contents of the 16x9 status panel (top right) while a vendor shows the inventory
  * (1000:4832 weapons, 48F8 armour, 4BC7 reagents, 4987 equipment); restored by 1000:4649.
- * Game.draw() renders it instead of the party list when `statsView` is set.
+ * Shown as a layer replacing the party list.
  */
-export interface StatsView { title: string; rows: string[] }
+export type StatsView = StatusPanel;
 
+const statsLayers = new WeakMap<Game, LayerHandle>();
 function setStats(g: Game, v: StatsView | null) {
-  (g as unknown as { statsView?: StatsView | null }).statsView = v;
+  statsLayers.get(g)?.remove();
+  statsLayers.delete(g);
+  if (v) statsLayers.set(g, g.layers.push({ name: "stats", status: () => v }));
 }
 
 const pad2 = (ch: string, n: number) => (n < 10 ? ch : "") + String(n);
