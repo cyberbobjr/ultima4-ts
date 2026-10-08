@@ -75,6 +75,29 @@ class DungeonRun {
   private get here() { return this.cell(this.s.x, this.s.y); }
   private ahead(k: number) { return this.cell(this.s.x + DIR_DX[this.dir] * k, this.s.y + DIR_DY[this.dir] * k); }
 
+  /**
+   * What Q)uit & save keeps underground: the 8 level maps as modified by the party (DNGMAP.SAV, 512 bytes,
+   * DS:8742) and the wandering monsters (32 slots: tile, x, y, level, 4 arrays of 32 bytes).
+   */
+  saveState(): { map: Uint8Array; monsters: Uint8Array } {
+    const map = new Uint8Array(512);
+    this.levels.forEach((l, i) => map.set(l, i * 64));
+    const monsters = new Uint8Array(128);
+    this.wanderers.forEach((m, i) => {
+      if (!m) return;
+      monsters[i] = m.tile; monsters[32 + i] = m.x; monsters[64 + i] = m.y; monsters[96 + i] = m.level;
+    });
+    return { map, monsters };
+  }
+
+  /** Puts back a saved state (resuming a game saved underground). */
+  restoreState(map: Uint8Array, monsters: Uint8Array | null) {
+    this.levels = this.levels.map((_, i) => map.slice(i * 64, i * 64 + 64));
+    if (monsters) for (let i = 0; i < 32; i++)
+      this.wanderers[i] = monsters[i] ? { tile: monsters[i], x: monsters[32 + i], y: monsters[64 + i], px: monsters[32 + i], py: monsters[64 + i], level: monsters[96 + i] } : null;
+    this.ux = this.s.x; this.uy = this.s.y;
+  }
+
   /** Loads a dungeon (FUN_1000_3e94): fresh copy of the levels, no wandering monsters. */
   async load(loc: LocationDef) {
     const dng = await assets.dungeon(loc.dungeon!);
@@ -127,11 +150,13 @@ class DungeonRun {
     h.exit = () => this.exitToSurface();
     h.refresh = () => { this.ux = this.s.x; this.uy = this.s.y; this.refresh(false); };
     h.peer = () => this.peerGem(false);
+    h.state = () => this.saveState();
     try {
       await this.loop();
     } finally {
       h.cell = h.setCell = h.exit = h.refresh = null;
       h.peer = null;
+      h.state = null;
     }
   }
 
@@ -142,9 +167,8 @@ class DungeonRun {
       this.cellEffects();
       this.refresh();
       if (!this.members.some((p) => p.status !== "D")) {
-        // TODO: party death (1000:0EB1) belongs to the main game.
-        this.con.print(M.allLost);
-        await sleep(2000);
+        // the party is dead: leave the dungeon; the main loop resurrects it (1000:0EB1, "All is Dark...")
+        this.done = true;
         return;
       }
       if (!this.members.some((p) => p.status === "G" || p.status === "P")) {
@@ -180,16 +204,15 @@ class DungeonRun {
       case "p": await this.peerGem(); return true;
       case "a": case "b": case "e": case "f": case "j": case "l": case "o": case "t": case "x": case "y":
         this.con.print(M.notHere); return true;
-      case "h": case "q": case "v":
-        // TODO: hole up (1000:8AB0) and quit&save (DNGMAP.SAV) underground.
+      case "v":
         this.con.print(M.notHere); return false;
     }
-    // C)ast, M)ix, U)se, N)ew order, R)eady, W)ear, Z)tats: registered commands
+    // C)ast, M)ix, U)se, N)ew order, R)eady, W)ear, Z)tats, H)ole up, Q)uit & save: registered commands
     const cmd = this.g.commands.get(key, "dungeon");
     if (cmd) {
       await cmd.run({ g: this.g, ctx: "dungeon" });
-      if (cmd.key === "c" || cmd.key === "u") this.refresh(false);
-      return true;
+      if (cmd.key === "c" || cmd.key === "u" || cmd.key === "h") this.refresh(false);
+      return cmd.key !== "q";
     }
     this.con.print(M.dngBadCommand);
     return false;
@@ -565,16 +588,25 @@ class DungeonRun {
   dispose() { this.view.dispose(); }
 }
 
-export async function runDungeon(g: Game, loc: LocationDef): Promise<void> {
+/**
+ * Enters a dungeon, or (`resume`) goes back into the one a game was saved in, with the saved level maps
+ * (DNGMAP.SAV) and wandering monsters.
+ */
+export async function runDungeon(g: Game, loc: LocationDef, resume?: { map: Uint8Array; monsters: Uint8Array | null }): Promise<void> {
   const s = g.save;
-  if (!g.onFoot) { g.con.print(M.onlyOnFoot); return; } // 1000:3F03
-  if (loc.id === ABYSS && (s.items & ABYSS_ITEMS) !== ABYSS_ITEMS) { g.con.print(M.cant); return; } // 1000:3FB9
+  if (!resume) {
+    if (!g.onFoot) { g.con.print(M.onlyOnFoot); return; } // 1000:3F03
+    if (loc.id === ABYSS && (s.items & ABYSS_ITEMS) !== ABYSS_ITEMS) { g.con.print(M.cant); return; } // 1000:3FB9
+  }
   const run = new DungeonRun(g);
   await run.load(loc);
   if (import.meta.env.DEV) (window as unknown as { __dungeon: DungeonRun }).__dungeon = run; // for automated tests
-  // 1000:3F03 / 3EE4: start at (1,1) of level 1 facing East; the overworld position is kept in dngX/dngY.
-  s.dngX = s.x; s.dngY = s.y;
-  s.x = 1; s.y = 1; s.orientation = 2; s.dngLevel = 0;
+  if (resume) run.restoreState(resume.map, resume.monsters);
+  else {
+    // 1000:3F03 / 3EE4: start at (1,1) of level 1 facing East; the overworld position is kept in dngX/dngY.
+    s.dngX = s.x; s.dngY = s.y;
+    s.x = 1; s.y = 1; s.orientation = 2; s.dngLevel = 0;
+  }
   // The 3D view in the viewport, the level/direction in the frame and the peer map.
   const layer = g.layers.push({ name: "dungeon", view: () => null, scene3d: () => run.scene3d(), draw: () => run.hud() });
   try {

@@ -93,7 +93,11 @@ export function extractAll({ gameDir, outDir, log = console.log }: ExtractOption
     if (f === "SHRINE.CON") json("maps/combat/shrine.json", { tiles: read(f).slice(0, 121) });
     else json(`maps/combat/${base(f)}.json`, decodeCombat(read(f)));
   }
-  for (const f of byExt(".DNG")) json(`maps/dungeons/${base(f)}.json`, decodeDungeon(read(f)));
+  for (const f of byExt(".DNG")) {
+    // CAMP.DNG is not a dungeon but the 192-byte arena of a camp underground (same layout as *.CON)
+    if (read(f).length <= 192) json(`maps/combat/${base(f)}-dng.json`, decodeCombat(read(f)));
+    else json(`maps/dungeons/${base(f)}.json`, decodeDungeon(read(f)));
+  }
   for (const f of byExt(".TLK")) json(`talk/${base(f)}.json`, decodeTalk(read(f)));
   log(`maps: ${byExt(".ULT").length} towns, ${byExt(".CON").length} arenas, ${byExt(".DNG").length} dungeons, ${byExt(".TLK").length} dialogues`);
 

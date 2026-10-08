@@ -1,10 +1,11 @@
 // Party commands: A)ttack, R)eady, W)ear, H)ole up, G)et chest, L)ocate, Z)tats, Q)uit & save.
 import { writeSave } from "../io/gamefs";
 import { encodeSave, type PlayerRecord } from "../formats/save";
-import { ARMOURS, CHEST_TRAPS, WEAPONS } from "../data/tables";
+import { ARMOURS, CAMP_RULES, CHEST_TRAPS, WEAPONS } from "../data/tables";
+import { isAlive } from "./party";
 import { MSG_CORE } from "./texts/core";
 import { equipArmour, equipWeapon } from "./equipment";
-import { say } from "./prompts";
+import { say, ticks } from "./prompts";
 import { isNonEvil, spawnGroup } from "./combat";
 import { loadArena } from "./arenas";
 import { CLASS_NAMES, maxMp, type Game } from "./game";
@@ -95,24 +96,29 @@ export async function wearArmour(g: Game) {
   else if (r === "notAllowed") g.con.print(MSG_CORE.mayNotUseA + CLASS_NAMES[p.klass] + MSG_CORE.mayNotUse + ARMOURS[a].name + "!\n");
 }
 
-/** H)ole up & camp (1000:8AB0). */
+/**
+ * H)ole up & camp (1000:8AB0): on the overworld or in a dungeon, on foot. The party rests 10 time units;
+ * 1 in 8 it is ambushed asleep (1000:8A5A), else, once per 100 moves, the living members wake up and heal.
+ */
 export async function holeUp(g: Game) {
   g.con.print(MSG_CORE.holeUp);
-  if (!g.onFoot || g.map.kind !== "world") { g.con.print(MSG_CORE.notHere); return; }
+  const inDungeon = g.mode === "dungeon";
+  if (!inDungeon && g.save.location !== 0) { g.con.print(MSG_CORE.notHere); return; }
+  if (!g.onFoot) { g.con.print(MSG_CORE.onlyOnFoot); return; }
   g.con.print(MSG_CORE.resting);
-  for (let k = 0; k < 4; k++) { g.endTurn(); await new Promise((r) => setTimeout(r, 300)); }
-  if (rand(8) === 0) {
+  await ticks(CAMP_RULES.restTicks);
+  if ((rand8() & 7) === 0) {
     g.con.print(MSG_CORE.ambushed);
-    const tiles = [0xc0, 0xc8, 0xa4, 0xd0];
-    const arena = await loadArena("CAMP.CON");
-    const res = await g.fight({ arena, monsters: spawnGroup(tiles[rand(4)], arena, g.save.members), context: "world" });
-    void res;
+    const tile = CAMP_RULES.ambushTiles[rand8() & 7];
+    for (const p of g.members) if (p.status === "G") p.status = "S";
+    const arena = await loadArena(inDungeon ? CAMP_RULES.arenaDungeon : CAMP_RULES.arenaWorld);
+    await g.fight({ arena, monsters: spawnGroup(tile, arena, g.save.members), context: inDungeon ? "dungeon" : "world" });
     return;
   }
   if (Math.floor(g.save.moves / 100) === g.save.lastCamp) { g.con.print(MSG_CORE.noEffect); return; }
   g.save.lastCamp = Math.floor(g.save.moves / 100) & 0xffff;
   for (const p of g.members) {
-    if (p.status === "D") continue;
+    if (!isAlive(p)) continue;
     if (p.status === "S") p.status = "G";
     p.hp = Math.min(p.hpMax, p.hp + (rand8() & 0x77) + 99);
     p.mp = maxMp(p);
@@ -164,12 +170,20 @@ export function locate(g: Game) {
   g.con.print(MSG_CORE.latitude + L(g.py) + MSG_CORE.longitude + L(g.px) + '"\n');
 }
 
+/**
+ * Q)uit & save (1000:6F29): the move count first, then the save on the overworld (PARTY.SAV and the
+ * overworld objects) or in a dungeon (PARTY.SAV, the level maps DNGMAP.SAV and the wandering monsters).
+ */
 export async function quitSave(g: Game) {
   g.con.print(MSG_CORE.quitSave);
-  if (g.map.kind !== "world") { g.con.print(MSG_CORE.notHere); return; }
-  await writeSave("PARTY.SAV", encodeSave(g.save));
-  await writeSave("OUTMONST.SAV", encodeObjects(g.objects));
-  await (await import("./journal")).saveJournal(g); // EXTRA.json: journal of discovered places
   g.con.print(g.save.moves + MSG_CORE.moves);
+  const state = g.mode === "dungeon" ? g.dungeon.state?.() : null;
+  if (!state && (g.map.kind !== "world" || g.save.location !== 0)) { g.con.print(MSG_CORE.notHere); return; }
+  await writeSave("PARTY.SAV", encodeSave(g.save));
+  if (state) {
+    await writeSave("DNGMAP.SAV", state.map);
+    await writeSave("DNGMON.SAV", state.monsters);
+  } else await writeSave("OUTMONST.SAV", encodeObjects(g.objects));
+  await (await import("./journal")).saveJournal(g); // EXTRA.json: journal of discovered places
   g.con.print(MSG_CORE.quitHint);
 }

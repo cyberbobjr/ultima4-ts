@@ -3,6 +3,5 @@
   "msg.fight.sleep": "Sleep!\n",
   "msg.fight.foodStolen": "Food stolen!\n",
   "msg.fight.goldStolen": "Gold stolen!\n",
-  "msg.fight.level": "L{n}",
-  "msg.fight.allLost": "\nAll is lost!\n"
+  "msg.fight.level": "L{n}"
 }

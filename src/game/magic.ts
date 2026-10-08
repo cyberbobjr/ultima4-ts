@@ -29,6 +29,8 @@ export interface DungeonHooks {
   refresh: (() => void) | null;
   /** Dungeon peer map (1000:C23B) without using a gem: View spell. */
   peer: (() => Promise<void>) | null;
+  /** State saved by Q)uit & save underground: the 8 level maps (DNGMAP.SAV) and the wandering monsters. */
+  state: (() => { map: Uint8Array; monsters: Uint8Array }) | null;
 }
 
 /** Dungeon light counter DS:9320 (= save.balloonState underground): Light spell and torches add 100 turns. */

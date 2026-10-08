@@ -24,6 +24,8 @@ import { askMember } from "./prompts";
 import type { DungeonHooks } from "./magic";
 import { rand } from "./rng";
 import { viewTiles } from "./view";
+import { runDungeon } from "./dungeon";
+import { LOCATIONS } from "./locations";
 import { Sky, checkMoongate } from "./world/sky";
 import { decodeObjects, type WorldObject } from "./world/objects";
 import { moveWorldMonsters, partyDeath, worldFight } from "./world/monsters";
@@ -59,7 +61,7 @@ export class Game {
   /** Key commands by context; modules register theirs (magic.ts, items.ts). */
   readonly commands = new CommandRegistry();
   /** Level access for spells and items while in a dungeon (set by dungeon.ts, all null elsewhere). */
-  readonly dungeon: DungeonHooks = { cell: null, setCell: null, exit: null, refresh: null, peer: null };
+  readonly dungeon: DungeonHooks = { cell: null, setCell: null, exit: null, refresh: null, peer: null, state: null };
   /** Town doors opened with O)pen, closing again after a few turns. */
   openedDoors: { x: number; y: number; turns: number }[] = [];
   /** Monster that will attack at the end of this turn. */
@@ -105,12 +107,12 @@ export class Game {
       cmd("d", "descend", out, descend),
       cmd("e", "enter", out, enter),
       cmd("g", "getChest", out, getChest),
-      cmd("h", "holeUp", out, holeUp),
+      cmd("h", "holeUp", all, holeUp),
       cmd("j", "jimmy", out, jimmy),
       cmd("k", "klimb", out, klimb),
       cmd("l", "locate", out, locate),
       cmd("o", "open", out, open),
-      cmd("q", "quitSave", out, quitSave),
+      cmd("q", "quitSave", all, quitSave),
       cmd("r", "ready", all, (g) => readyWeapon(g)),
       cmd("t", "talk", out, talk),
       cmd("w", "wear", all, wearArmour),
@@ -132,6 +134,17 @@ export class Game {
     const objs = await readSave("OUTMONST.SAV");
     this.objects = objs ? decodeObjects(objs) : [];
     this.con.clear();
+    // A game saved underground goes back into its dungeon (level maps in DNGMAP.SAV).
+    const map = save.location >= 17 && save.location <= 24 && save.dngLevel < 8 ? await readSave("DNGMAP.SAV") : null;
+    if (map && map.length >= 512) {
+      this.px = save.dngX; this.py = save.dngY;
+      await runDungeon(this, LOCATIONS[save.location], { map, monsters: await readSave("DNGMON.SAV") });
+      save.location = 0;
+    } else if (save.location >= 17 && save.location <= 24) {
+      // saved underground without the level maps: back at the entrance
+      save.location = 0; save.dngLevel = 0xffff; save.x = save.dngX; save.y = save.dngY;
+      this.setPos(save.x, save.y);
+    }
     await this.mainLoop();
   }
 

@@ -72,8 +72,6 @@ export const MSG_FIGHT = defineTexts("msg.fight", {
   west6: 0x1647,
   /** Level number in the frame, (not a string in the original). */
   level: port(),
-  /** Party wiped out underground (not in the original). */
-  allLost: port(),
   /** (dungeon loop) */
   zzz: 0x2633,
   turnLeft: 0x2666,

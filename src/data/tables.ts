@@ -490,6 +490,14 @@ export const CAMP_RULES = {
   // Each living member: wakes, HP += (rand8 & 0x77) + 99 (capped at max), MP = 99 then capped to class max.
   healFormula: '(rand8 & 0x77) + 99',
   restoresFullMp: true,
+  // 1000:8AB0: allowed on the overworld (location 0) or in a dungeon (mode 3), on foot only; the party
+  // rests for 10 time units (FUN_1000_16cd(10)) without passing turns.
+  restTicks: 10,
+  // 1000:8A5A: the ambusher is DS:0x26B8[rand8 & 7]; the whole party is asleep ('G' -> 'S') when it starts.
+  ambushTiles: [0xc0, 0xc4, 0xc8, 0xcc, 0xb4, 0xa0, 0xa4, 0xdc],
+  // arena: CAMP.DNG underground (DS:0x26D0), CAMP.CON outside (DS:0x26D9)
+  arenaDungeon: 'CAMP.DNG',
+  arenaWorld: 'CAMP.CON',
 } as const;
 
 // Chest traps (1000:7150) - used by Get Chest and Open spell.

@@ -137,8 +137,10 @@ export class AssetStore {
     return orig.map((d, i) => (d && tr?.[i] ? { ...d, ...tr[i] } : d));
   }
 
+  /** An arena by file name ("GRASS.CON"; "CAMP.DNG" is the camp arena underground). */
   async combat(file: string): Promise<CombatMap> {
-    const c = await this.json<{ tiles: number[]; monsterPos: [number, number][]; partyPos: [number, number][] }>(`maps/combat/${base(file)}.json`);
+    const name = file.toUpperCase().endsWith(".DNG") ? `${base(file)}-dng` : base(file);
+    const c = await this.json<{ tiles: number[]; monsterPos: [number, number][]; partyPos: [number, number][] }>(`maps/combat/${name}.json`);
     return { tiles: bytes(c.tiles), monsterPos: c.monsterPos, partyPos: c.partyPos };
   }
 
