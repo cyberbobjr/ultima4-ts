@@ -1,0 +1,34 @@
+/* World map panel: the map (zoom / pan) and the list of discovered places. Side by side when the
+   panel is wide, stacked when it is tall. */
+.panel-body.wm-body { flex: 1; min-height: 0; overflow: hidden; padding: 8px; container-type: size; }
+.wm { display: flex; gap: 8px; width: 100%; height: 100%; }
+.wm-view { position: relative; flex: 1; min-width: 0; min-height: 0; background: #000; border: 1px solid var(--ui-line); overflow: hidden; }
+.wm-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab;
+  image-rendering: pixelated; image-rendering: crisp-edges; }
+.wm-canvas:active { cursor: grabbing; }
+.wm-canvas:focus-visible { outline: 2px solid var(--ui-accent); outline-offset: -2px; }
+.wm-tools { position: absolute; top: 6px; right: 6px; display: flex; gap: 4px; }
+.wm .wm-tools button { min-width: var(--tap); min-height: var(--tap); font-size: 14px; background: rgba(13, 13, 24, 0.85); }
+.wm .wm-tools .wm-centre { font-size: 9px; padding: 0 8px; }
+.wm-hint { position: absolute; left: 6px; bottom: 6px; right: 6px; font-size: 8px; color: var(--ui-dim); pointer-events: none; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000; line-height: 1.5; }
+.wm-tip { position: absolute; z-index: 1; padding: 4px 6px; font-size: 9px; white-space: nowrap; color: var(--ui-text); background: var(--ui-bg);
+  border: 1px solid var(--ui-accent); border-radius: 3px; pointer-events: none; transform: translate(-50%, calc(-100% - 10px)); }
+.wm-tip[hidden] { display: none; }
+
+.wm-side { width: 230px; flex: none; display: flex; flex-direction: column; min-height: 0; }
+.wm-side h3 { margin: 0 0 4px; font-size: 10px; color: var(--ui-accent); }
+.wm-count { font-size: 8px; color: var(--ui-dim); margin-bottom: 6px; }
+.wm-list { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.wm-none { font-size: 9px; color: var(--ui-dim); }
+.wm-group { margin: 0 0 8px; }
+.wm-group h4 { display: flex; align-items: center; gap: 6px; margin: 0 0 3px; font-size: 8px; font-weight: normal; color: var(--ui-dim); text-transform: uppercase; }
+.wm-swatch { width: 9px; height: 9px; flex: none; border: 1px solid #000; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); }
+.wm-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; }
+.wm .wm-group button { width: 100%; min-height: 32px; text-align: left; font-size: 9px; padding: 4px 6px; line-height: 1.4; }
+.wm .wm-group button.sel { border-color: var(--ui-accent); color: var(--ui-accent); }
+
+@container (max-aspect-ratio: 1/1) or (max-width: 620px) {
+  .wm { flex-direction: column; }
+  .wm-side { width: auto; height: 34%; }
+  .wm-group ul { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}

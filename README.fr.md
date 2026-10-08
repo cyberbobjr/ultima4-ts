@@ -75,6 +75,26 @@ R)eady · S)earch · T)alk · U)se · W)ear · X)it · Y)ell · Z)tats · Espace
 
 Dans les donjons : Haut/Bas pour avancer/reculer, Gauche/Droite pour tourner.
 
+## iPad / tactile
+
+Le jeu se joue aussi à la souris ou au doigt ; chaque toucher devient les touches de l'original.
+
+- Monde et villes : toucher une case pour y marcher (pas à pas ; une touche, une question du jeu ou
+  un combat arrêtent la marche). Toucher un voisin (habitant, monstre) pour Parler / Attaquer /
+  Regarder, une porte pour Ouvrir / Crocheter, le groupe pour ce qu'il y a dessous (coffre, échelles,
+  Entrer, Embarquer, Débarquer).
+- Donjons : glisser vers le haut/bas pour avancer/reculer, gauche/droite pour tourner ; toucher pour
+  les commandes du donjon.
+- Combat : toucher un ennemi à côté du personnage actif pour l'attaquer, une autre case pour s'en
+  approcher d'un pas.
+- La barre de commandes donne les autres commandes et un champ de texte pour les conversations. La
+  marche au toucher se désactive dans les réglages (`controls.tapToMove`).
+
+Sur iPad, construire le jeu (`npm run build`, avec les fichiers extraits) et servir `dist/` depuis
+une machine du même réseau (`npx vite preview --host`) ; le service worker et l'installation
+demandent HTTPS (ou localhost). Dans Safari : Partager > Sur l'écran d'accueil. Le jeu démarre alors
+en plein écran et garde ses fichiers en cache après la première visite.
+
 ## État
 
 Implémenté : intro et création du personnage, monde extérieur (lunes, portes lunaires, vent,

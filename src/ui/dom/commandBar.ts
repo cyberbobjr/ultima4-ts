@@ -7,7 +7,7 @@ import { t } from "../../i18n/i18n";
 import { h } from "./dom";
 
 /** Keys handled inside the dungeon and combat loops themselves (not in the registry). */
-const EXTRA: Partial<Record<CommandContext, { key: string; id: string }[]>> = {
+export const EXTRA: Partial<Record<CommandContext, { key: string; id: string }[]>> = {
   dungeon: [
     { key: "k", id: "klimb" }, { key: "d", id: "descend" }, { key: "g", id: "getChest" },
     { key: "s", id: "search" }, { key: "i", id: "ignite" }, { key: "p", id: "peer" }, { key: " ", id: "pass" },

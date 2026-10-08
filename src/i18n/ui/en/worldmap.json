@@ -1,0 +1,22 @@
+{
+  "map.party": "Party",
+  "map.centre": "Centre on the party",
+  "map.zoomIn": "Zoom in",
+  "map.zoomOut": "Zoom out",
+  "map.places": "Places",
+  "map.count": "{n} / {total} discovered",
+  "map.none": "No place discovered yet. Explore: places within 5 steps are noted here.",
+  "map.hint": "Drag, wheel or pinch. Arrows: move, + / -: zoom, C: party.",
+  "map.canvas": "Map of Britannia",
+  "map.you": "You are here",
+  "map.shrine": "Shrine of {name}",
+  "map.moongate": "Moongate of {name}",
+  "map.kind.castle": "Castles",
+  "map.kind.town": "Towns",
+  "map.kind.village": "Villages",
+  "map.kind.ruin": "Ruins",
+  "map.kind.dungeon": "Dungeons",
+  "map.kind.abyss": "Abyss",
+  "map.kind.shrine": "Shrines",
+  "map.kind.moongate": "Moongates"
+}

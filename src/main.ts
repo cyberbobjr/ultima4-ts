@@ -15,6 +15,8 @@ import { MSG_CORE } from "./game/texts/core";
 import { loadConfig } from "./config/config";
 import { createShell } from "./ui/dom/shell";
 import { installPanels } from "./ui/panels";
+import { installPointer } from "./ui/dom/pointer";
+import "./pwa";
 
 async function main() {
   const canvas = document.getElementById("screen") as HTMLCanvasElement;
@@ -35,6 +37,7 @@ async function main() {
   const game = new Game(renderer, new Input());
   const shell = createShell(canvas, game);
   installPanels(shell, game);
+  installPointer(shell, game);
   renderer.resize();
   if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game; // used by automated tests
   installMagic(game);

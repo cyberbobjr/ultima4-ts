@@ -3,6 +3,7 @@ import { writeSave } from "../io/gamefs";
 import { encodeSave, type PlayerRecord } from "../formats/save";
 import { ARMOURS, CHEST_TRAPS, WEAPONS } from "../data/tables";
 import { MSG_CORE } from "./texts/core";
+import { equipArmour, equipWeapon } from "./equipment";
 import { say } from "./prompts";
 import { isNonEvil, spawnGroup } from "./combat";
 import { loadArena } from "./arenas";
@@ -73,11 +74,9 @@ export async function readyWeapon(g: Game, member?: number) {
   const w = k.charCodeAt(0) - 65;
   if (!(w >= 0 && w < 16)) { g.con.println(""); return; }
   g.con.println(WEAPONS[w].name);
-  if (w !== 0 && g.save.weapons[w] <= 0) { g.con.print(MSG_CORE.noneLeft); return; }
-  if (!(WEAPONS[w].classMask & (0x80 >> p.klass))) { g.con.print(MSG_CORE.mayNotUseA + CLASS_NAMES[p.klass] + MSG_CORE.mayNotUse + WEAPONS[w].name + "!\n"); return; }
-  if (p.weapon !== 0) g.save.weapons[p.weapon]++;
-  if (w !== 0) g.save.weapons[w]--;
-  p.weapon = w;
+  const r = equipWeapon(g.save, p, w);
+  if (r === "noneLeft") g.con.print(MSG_CORE.noneLeft);
+  else if (r === "notAllowed") g.con.print(MSG_CORE.mayNotUseA + CLASS_NAMES[p.klass] + MSG_CORE.mayNotUse + WEAPONS[w].name + "!\n");
 }
 
 /** W)ear armour (1000:7732). */
@@ -91,11 +90,9 @@ export async function wearArmour(g: Game) {
   const a = k.charCodeAt(0) - 65;
   if (!(a >= 0 && a < 8)) { g.con.println(""); return; }
   g.con.println(ARMOURS[a].name);
-  if (a !== 0 && g.save.armour[a] <= 0) { g.con.print(MSG_CORE.noneLeft); return; }
-  if (!(ARMOURS[a].classMask & (0x80 >> p.klass))) { g.con.print(MSG_CORE.mayNotUseA + CLASS_NAMES[p.klass] + MSG_CORE.mayNotUse + ARMOURS[a].name + "!\n"); return; }
-  if (p.armour !== 0) g.save.armour[p.armour]++;
-  if (a !== 0) g.save.armour[a]--;
-  p.armour = a;
+  const r = equipArmour(g.save, p, a);
+  if (r === "noneLeft") g.con.print(MSG_CORE.noneLeft);
+  else if (r === "notAllowed") g.con.print(MSG_CORE.mayNotUseA + CLASS_NAMES[p.klass] + MSG_CORE.mayNotUse + ARMOURS[a].name + "!\n");
 }
 
 /** H)ole up & camp (1000:8AB0). */
@@ -172,6 +169,7 @@ export async function quitSave(g: Game) {
   if (g.map.kind !== "world") { g.con.print(MSG_CORE.notHere); return; }
   await writeSave("PARTY.SAV", encodeSave(g.save));
   await writeSave("OUTMONST.SAV", encodeObjects(g.objects));
+  await (await import("./journal")).saveJournal(g); // EXTRA.json: journal of discovered places
   g.con.print(g.save.moves + MSG_CORE.moves);
   g.con.print(MSG_CORE.quitHint);
 }

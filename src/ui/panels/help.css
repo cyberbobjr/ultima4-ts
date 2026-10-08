@@ -1,0 +1,40 @@
+/* Help panel: tabs on top, the section scrolls below them. */
+.panel:has(.help-body) { width: min(94%, 760px); height: 88%; }
+.panel-body.help-body { display: flex; flex-direction: column; gap: 8px; overflow: hidden; flex: 1; min-height: 0; padding: 8px 10px; }
+.help-tabs { display: flex; flex-wrap: wrap; gap: 4px; flex: none; }
+.panel .help-tab { flex: 1 1 auto; font-size: 9px; padding: 6px 8px; color: var(--ui-dim); }
+.panel .help-tab[aria-selected="true"] { color: #000; background: var(--ui-accent); border-color: var(--ui-accent); }
+.help-content { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 14px; line-height: 1.45; outline: none; }
+.help-content h3 { font-family: var(--ui-font); font-size: 10px; color: var(--ui-accent); margin: 16px 0 6px; font-weight: normal; }
+.help-content h3:first-child { margin-top: 4px; }
+.help-content p { margin: 0 0 8px; }
+.help-nav { flex: none; margin: 0; font-size: 8px; color: var(--ui-dim); text-align: center; }
+.help-lead { color: var(--ui-dim); }
+.help-ctx { font-family: var(--ui-font); font-size: 9px; color: var(--ui-accent); margin-right: 4px; }
+.help-key { display: inline-block; min-width: 1.4em; padding: 2px 5px; margin: 0 2px 2px 0; font-family: var(--ui-font); font-size: 9px; line-height: 1.4; text-align: center; color: var(--ui-accent); background: var(--ui-bg); border: 1px solid var(--ui-line); border-radius: 3px; white-space: nowrap; }
+
+.help-table { width: 100%; border-collapse: collapse; }
+.help-table td, .help-table th { padding: 5px 6px; border-bottom: 1px solid rgba(85, 85, 255, 0.3); vertical-align: top; text-align: left; }
+.help-table td:first-child { width: 1%; white-space: nowrap; }
+.help-table th { font-weight: 600; white-space: nowrap; color: var(--ui-text); }
+
+.help-cmds { list-style: none; margin: 0; padding: 0; }
+.help-cmd { padding: 6px 0; border-bottom: 1px solid rgba(85, 85, 255, 0.3); }
+.help-cmd-head { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.help-cmd-line { display: grid; grid-template-columns: 13.5em 1fr; align-items: baseline; gap: 8px; padding: 1px 0 1px 4px; }
+.help-tags { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.help-tag { font-size: 11px; padding: 0 5px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+.help-tag-world { color: #55ff55; }
+.help-tag-town { color: #ffff55; }
+.help-tag-dungeon { color: #ff55ff; }
+.help-tag-combat { color: #ff5555; }
+
+.help-dl { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; }
+.help-dl dt { font-weight: 600; }
+.help-dl dd { margin: 0; }
+@media (max-width: 520px) {
+  .help-dl { grid-template-columns: 1fr; gap: 2px; }
+  .help-dl dd { margin-bottom: 6px; }
+  .help-table th { white-space: normal; }
+  .help-cmd-line { grid-template-columns: 1fr; gap: 2px; }
+}

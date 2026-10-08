@@ -36,6 +36,8 @@ export function mergeConfig<T>(base: T, over: unknown): T {
 }
 
 let current: Config = structuredClone(DEFAULT_CONFIG);
+/** What is saved: the stored values and the user's changes, without the session overrides (?lang, ?debug). */
+let stored: Config = structuredClone(DEFAULT_CONFIG);
 const listeners = new Set<(c: Config) => void>();
 
 export const config = (): Config => current;
@@ -61,7 +63,8 @@ async function readStored(): Promise<unknown> {
 }
 
 export async function loadConfig(): Promise<Config> {
-  current = mergeConfig(structuredClone(DEFAULT_CONFIG), await readStored());
+  stored = mergeConfig(structuredClone(DEFAULT_CONFIG), await readStored());
+  current = structuredClone(stored);
   // Dev/tests: ?lang=fr, ?debug override the stored values for this session only.
   if (typeof location !== "undefined") {
     const q = new URLSearchParams(location.search);
@@ -75,8 +78,9 @@ export async function loadConfig(): Promise<Config> {
 /** Applies a partial change, notifies listeners and persists it. */
 export async function updateConfig(change: Partial<{ [K in keyof Config]: Partial<Config[K]> }>): Promise<void> {
   current = mergeConfig(current, change);
+  stored = mergeConfig(stored, change);
   for (const fn of listeners) fn(current);
-  const text = JSON.stringify(current, null, 2);
+  const text = JSON.stringify(stored, null, 2);
   try {
     if (isTauri) {
       const { invoke } = await import("@tauri-apps/api/core");

@@ -1,0 +1,22 @@
+{
+  "map.party": "Groupe",
+  "map.centre": "Centrer sur le groupe",
+  "map.zoomIn": "Zoom avant",
+  "map.zoomOut": "Zoom arrière",
+  "map.places": "Lieux",
+  "map.count": "{n} / {total} découverts",
+  "map.none": "Aucun lieu découvert. Explorez : les lieux à moins de 5 pas sont notés ici.",
+  "map.hint": "Glisser, molette ou pincer. Flèches : déplacer, + / - : zoom, C : groupe.",
+  "map.canvas": "Carte de Britannia",
+  "map.you": "Vous êtes ici",
+  "map.shrine": "Sanctuaire : {name}",
+  "map.moongate": "Portail lunaire : {name}",
+  "map.kind.castle": "Châteaux",
+  "map.kind.town": "Villes",
+  "map.kind.village": "Villages",
+  "map.kind.ruin": "Ruines",
+  "map.kind.dungeon": "Donjons",
+  "map.kind.abyss": "Abysse",
+  "map.kind.shrine": "Sanctuaires",
+  "map.kind.moongate": "Portails lunaires"
+}

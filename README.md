@@ -73,6 +73,23 @@ R)eady · S)earch · T)alk · U)se · W)ear · X)it · Y)ell · Z)tats · Space:
 
 In dungeons: Up/Down to advance/retreat, Left/Right to turn.
 
+## iPad / touch
+
+The game can be played with a mouse or a touch screen; every tap is turned into the original keys.
+
+- Overworld and towns: tap a square to walk there (step by step; any key, a prompt or a fight stops
+  the walk). Tap a neighbour (townsperson, monster) for Talk / Attack / Look, a door for Open /
+  Jimmy, the party for what is under it (Get chest, Klimb, Descend, Enter, Board, X-it).
+- Dungeons: swipe up/down to advance/retreat, left/right to turn; tap for the dungeon commands.
+- Combat: tap a foe next to the active member to attack it, any other square to step towards it.
+- The command bar gives the other commands and a text field for conversations. Walking by tapping
+  can be turned off in the settings (`controls.tapToMove`).
+
+On an iPad, build the game (`npm run build`, with the extracted files) and serve `dist/` from a
+machine on the same network (`npx vite preview --host`); service workers and installation need
+HTTPS (or localhost). In Safari: Share > Add to Home Screen. The game then starts full screen and
+keeps its files in the cache after the first visit.
+
 ## Status
 
 Implemented: intro and character creation, overworld (moons, moongates, wind, ships, horses,

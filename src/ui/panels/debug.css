@@ -1,0 +1,41 @@
+/* Debug panel */
+.dbg-top { position: sticky; top: -10px; z-index: 1; margin: -10px -10px 10px; padding: 10px 10px 0; background: var(--ui-panel); }
+.dbg-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.dbg-state { flex: 1; min-width: 12em; font-size: 9px; line-height: 1.5; }
+.dbg-state.ok { color: #55ff55; }
+.dbg-state.partial { color: #ffff55; }
+.dbg-state.busy { color: #ff5555; }
+.dbg-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--ui-line); padding-bottom: 6px; }
+.panel .dbg-tab { padding: 0 10px; font-size: 10px; }
+.panel .dbg-tab.active { background: var(--ui-line); border-color: var(--ui-accent); color: #fff; }
+.dbg-section { margin-bottom: 14px; }
+.dbg-section h3 { margin: 0 0 8px; font-size: 10px; color: var(--ui-accent); font-weight: normal; }
+.dbg-member { margin-bottom: 10px; padding: 6px 8px; border: 1px solid #33337a; border-radius: 4px; }
+.dbg-member h4 { margin: 0 0 6px; font-size: 10px; font-weight: normal; }
+.dbg-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 6px 10px; }
+.dbg-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin-top: 8px; }
+.dbg-field { display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 9px; color: var(--ui-dim); }
+.dbg-field span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dbg-field input, .dbg-field select { min-height: 30px; min-width: 0; box-sizing: border-box; font: inherit; font-size: 10px; color: var(--ui-text); background: #000; border: 1px solid var(--ui-line); border-radius: 4px; padding: 0 4px; }
+.dbg-actions .dbg-field select { max-width: min(30em, 80vw); }
+.dbg-actions .dbg-field input { width: 6em; }
+.dbg-field input:focus-visible, .dbg-field select:focus-visible { outline: 1px solid var(--ui-accent); }
+.dbg-field input:disabled, .dbg-field select:disabled, .panel .dbg-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.dbg-flag { display: flex; align-items: center; gap: 6px; font-size: 9px; min-height: 30px; cursor: pointer; }
+.dbg-flag input { width: 18px; height: 18px; margin: 0; flex: none; accent-color: var(--ui-accent); }
+.dbg-god { font-size: 10px; color: #ffff55; }
+.panel .dbg-btn { padding: 0 8px; font-size: 9px; }
+.dbg-karma { display: flex; align-items: flex-end; gap: 6px; }
+.dbg-karma .dbg-field { flex: 1; }
+.dbg-karma .dbg-field input { width: 100%; }
+.dbg-elevated { font-size: 9px; color: #55ff55; padding-bottom: 8px; }
+.dbg-note { margin: 0 0 6px; font-size: 9px; color: var(--ui-dim); line-height: 1.6; }
+.dbg-tests { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.dbg-tests li { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 8px; border: 1px solid #33337a; border-radius: 4px; }
+.dbg-tests li > div { flex: 1; min-width: 0; }
+.dbg-tests li > button { flex: none; }
+.dbg-tests strong { display: block; font-weight: normal; font-size: 10px; color: var(--ui-text); }
+.dbg-tests small { display: block; font-size: 9px; color: var(--ui-dim); line-height: 1.6; }
+@media (max-width: 520px) {
+  .dbg-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+}

@@ -2,12 +2,13 @@
 // (actions.ts, places.ts, transport.ts, world/*, magic.ts, items.ts) and are found through the
 // command registry; modes draw through layers (src/ui/layers.ts).
 import { readSave } from "../io/gamefs";
+import { config } from "../config/config";
 import { assets } from "../assets/store";
 import type { PlayerRecord, SaveGame } from "../formats/save";
 import { EGA_PALETTE } from "../formats/ega";
 import { Renderer, TILE, VIEW_TILES, VIEW_X, VIEW_Y } from "../render/renderer";
 import { Console } from "./console";
-import { Input, type Key } from "./input";
+import { Input, INTERRUPT, type Key } from "./input";
 import { DIR_NAMES, DIRS, tileAt, type Dir, type MapCtx, type Npc, type WorldMap } from "./maps";
 import { slowChance, T, tileFlags, Walk } from "./tiles";
 import { CLASSES, MAX_MP_BY_CLASS } from "../data/tables";
@@ -142,10 +143,29 @@ export class Game {
 
   // ---------------------------------------------------------------- loop
 
+  /** True while the main loop waits for a command on the overworld or in a town. */
+  atPrompt = false;
+  private queued: (() => Promise<void> | void)[] = [];
+
+  /**
+   * Runs `action` from the main loop at the next command prompt, like a command (interface panels:
+   * teleports, debug fights, entering places). Returns false if the game is not at its prompt.
+   */
+  runAtPrompt(action: () => Promise<void> | void): boolean {
+    if (!this.atPrompt) return false;
+    this.queued.push(action);
+    this.input.interrupt();
+    return true;
+  }
+
   private async mainLoop() {
     for (;;) {
+      this.atPrompt = true;
       const k = await this.input.next(this.map.kind === "world" ? 8000 : 6000);
-      if (!k) { this.con.print(MSG_CORE.pass); this.endTurn(); }
+      this.atPrompt = false;
+      if (k?.code === INTERRUPT) {
+        for (let a = this.queued.shift(); a; a = this.queued.shift()) await a();
+      } else if (!k) { this.con.print(MSG_CORE.pass); this.endTurn(); }
       else await this.command(k);
       if (this.pendingShrine >= 0) {
         const v = this.pendingShrine;
@@ -237,7 +257,7 @@ export class Game {
 
   /** 1000:1135 */
   damagePlayer(p: PlayerRecord, n: number) {
-    if (p.status === "D") return;
+    if (p.status === "D" || config().debug.godMode) return; // debug panel: god mode
     p.hp = Math.max(0, p.hp - n);
     if (p.hp === 0) p.status = "D";
   }

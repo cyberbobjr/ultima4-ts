@@ -6,6 +6,8 @@ export interface Key { key: string; code: string; source?: KeySource }
 
 const ARROWS: Record<string, string> = { ArrowUp: "N", ArrowDown: "S", ArrowLeft: "W", ArrowRight: "E" };
 const SPECIAL = ["Enter", "Escape", "Backspace", " "];
+/** Key code of Input.interrupt(): wakes the waiting reader without being a key press. */
+export const INTERRUPT = "Interrupt";
 /** Keys kept while the game is busy (the BIOS buffer of the original is small too). */
 const QUEUE_MAX = 4;
 
@@ -41,6 +43,11 @@ export class Input {
   type(text: string, source: KeySource = "pointer", enter = false): void {
     for (const ch of text) this.push({ key: ch, code: "", source });
     if (enter) this.push({ key: "Enter", code: "Enter", source });
+  }
+
+  /** Wakes the reader waiting for a key with an INTERRUPT key (only the main loop uses it). */
+  interrupt(): void {
+    if (this.waiter) { const w = this.waiter; this.waiter = null; w({ key: "", code: INTERRUPT, source: "script" }); }
   }
 
   /** True while the game logic is waiting for a key (nothing queued). */
