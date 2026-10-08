@@ -3,6 +3,9 @@
 import { defineTexts, port } from "../../data/text";
 
 export const MSG_CORE = defineTexts("msg.core", {
+  /** Letters answering yes and no in this language (Y/N in the original). */
+  yesLetter: port(),
+  noLetter: port(),
   // generic answers (shared by many commands)
   what: 0x05f7,
   cant: 0x05fe,

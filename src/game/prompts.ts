@@ -4,6 +4,7 @@
 // for the whole engine.
 import type { Game } from "./game";
 import { CON_W } from "./console";
+import { MSG_CORE } from "./texts/core";
 
 /** Current column in the message area. */
 function col(g: Game): number {
@@ -147,15 +148,30 @@ export async function readNumber(g: Game, digits: number): Promise<number> {
 /** 1000:162F: waits for Y, N, space, Esc or Enter; echoes Y/N; newline. Returns "Y", "N" or another char. */
 export async function askYN(g: Game): Promise<string> {
   for (;;) {
-    let c = keyCode(await g.getKey());
+    const key = await g.getKey();
+    let c = keyCode(key);
     if (c > 0x60 && c < 0x7b) c -= 0x20;
+    // the language's own yes/no letters (O/N in French) count as Y/N
+    const yn = key.length === 1 ? answerLetter(key) : "";
+    if (yn === "Y" || yn === "N") c = yn.charCodeAt(0);
     if (c === 0x4e || c === 0x59 || c === 0x20 || c === 0x1b || c === 0x0d) {
-      if (c === 0x4e || c === 0x59) putc(g, String.fromCharCode(c));
+      if (c === 0x4e || c === 0x59) putc(g, yn === "Y" || yn === "N" ? key.toUpperCase() : String.fromCharCode(c));
       nl(g);
       return String.fromCharCode(c);
     }
     beep();
   }
+}
+
+/**
+ * First letter of a yes/no answer as the engine expects it ("Y"/"N"): the language's letters
+ * (MSG_CORE.yesLetter/noLetter, e.g. O/N in French) and the original Y/N are both accepted.
+ */
+export function answerLetter(ch: string): string {
+  const c = fold(ch);
+  if (c === fold(MSG_CORE.yesLetter)) return "Y";
+  if (c === fold(MSG_CORE.noLetter)) return "N";
+  return ch.toUpperCase();
 }
 
 /**

@@ -8,7 +8,7 @@ import { T } from "./tiles";
 import { JOIN_RULES } from "../data/tables";
 import { LB, TALK } from "./town/strings";
 import { MSG_TOWN } from "./texts/town";
-import { askYN, nl, pause, putc, putNum, readLine, readNumber, say, sayRaw, strnieq, waitKey } from "./prompts";
+import { answerLetter, askYN, nl, pause, putc, putNum, readLine, readNumber, say, sayRaw, strnieq, waitKey } from "./prompts";
 import { runShop } from "./shops";
 import { karmaDec, karmaInc, markVirtue, virtueReady, Virtue } from "./karma";
 import { TOPICS, type ConversationTurn } from "./conversation/provider";
@@ -112,7 +112,7 @@ async function question(g: Game, d: NonNullable<Npc["dialogue"]>) {
     const a = await readLine(g, 4);
     nl(g);
     if (!a) break;
-    c = a[0].toUpperCase();
+    c = answerLetter(a[0]);
     if (c === "N" || c === "Y") break;
     await say(g, TALK.yesOrNo);
   }
