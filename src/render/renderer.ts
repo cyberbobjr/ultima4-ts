@@ -232,6 +232,8 @@ export class Renderer {
     const box = this.gl.domElement.parentElement;
     let w = box?.clientWidth || window.innerWidth, h = box?.clientHeight || window.innerHeight;
     if (w / h > aspect) w = Math.floor(h * aspect); else h = Math.floor(w / aspect);
+    // whole horizontal scale (every original pixel column the same width) when there is room
+    if (w >= 2 * SCREEN_W) { w = Math.floor(w / SCREEN_W) * SCREEN_W; h = Math.floor(w / aspect); }
     this.gl.setPixelRatio(window.devicePixelRatio);
     this.gl.setSize(w, h);
   }
