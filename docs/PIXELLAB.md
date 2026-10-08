@@ -46,6 +46,22 @@ Findings:
 - Text adds what the 16×16 original cannot show (horns, eyes, armour…), so each tile needs a short description
   (the ones in `docs/PIXEL_ART_PROMPTS.md` can be reused).
 
+## Pilot (21 tiles + 1 animation frame, `tools/packs/pixellab-pilot.mjs`)
+
+Bitforge 64×64, EGA palette forced, init = original ×4, strength 350 (terrain, places), 300 (objects),
+220 (people, monsters); 22 generations. The script writes a review sheet and a test pack
+`assets/packs/pixellab-derived` (Scale4x for the other tiles): try it with `?pack=pixellab-derived`.
+
+| Category | Result |
+|---|---|
+| People (Avatar, mage, guard, king) and monsters (orc, skeleton, dragon) | **Convincing**: same pose, colours and silhouette as the original, real detail, crisp pixels, readable at game size. |
+| Animation frame (orc frame 2 with frame 1 as `style_image`) | **Consistent** with frame 1 (same design and colours, pose of the original frame 2): the approach works for monster animations. |
+| Objects (chest, ankh, ship) | Small improvements; the ship gains detail. |
+| Terrain (grass, forest, mountains, water, swamp) and places (town, castle, village, dungeon, shrine, moongate) at 350 | **Almost unchanged** from the original (a few stray pixels); the swamp turned into grey blocks and the forest trunks into yellow. A lower strength (≈ 250) and better descriptions are needed, with seam checks, or a dedicated terrain tool (`create-tiles-pro` / `create-tileset`). |
+
+Conclusion: worth it for people, monsters and their animations (≈ 110 tiles: classes, townsfolk, the 36
+monsters × 2–4 frames); terrain and places need another round of tuning (or keep Scale4x for them).
+
 ## Proposed pipeline (for a `pixellab-derived` pack)
 
 1. **Style anchor**: generate and hand-pick 3–4 key tiles (grass, castle, avatar, orc) with bitforge at
@@ -63,7 +79,7 @@ Findings:
 
 ## Cost
 
-The account is on the trial: 40 generations (33 left after the tests). A full pack is at least 256 bitforge
+The account is on the trial: 40 generations (11 left after the tests and the pilot). A full pack is at least 256 bitforge
 calls plus retries and animation work (Pro tools at 20–40 generations each), so it needs a paid plan; the
 free plan also runs **one job at a time**. Start with a pilot of ~20 tiles (one of each category) to
 validate the settings before generating the rest.
