@@ -8,7 +8,8 @@ import { installItems } from "./game/items";
 import { setSeed } from "./game/rng";
 import { advanceClock, useManualClock } from "./game/clock";
 import { assets as store } from "./assets/store";
-import { setGameText } from "./data/text";
+import { loadGameLang, setUiLang } from "./i18n/i18n";
+import { MODERN_FONT, type FontMode } from "./render/renderer";
 import "./data/all-texts";
 import { loadConfig } from "./config/config";
 
@@ -19,9 +20,18 @@ async function main() {
     "Run once, from the project folder:\n  npm run extract -- --game-dir \"<your Ultima IV install>\"\n\n" +
     "(default install: C:\\Program Files\\GOG Galaxy\\Games\\Ultima 4)");
   const cfg = await loadConfig();
-  setGameText(await store.gameText(cfg.lang.game).catch(() => store.gameText("en")), await store.gameText("en"));
+  setUiLang(cfg.lang.ui);
+  await loadGameLang(store, cfg.lang.game);
   const assets = await loadAssets();
   const renderer = new Renderer(canvas, assets);
+  // "auto": the original font for English with the original tiles, the modern one otherwise (accents, HD)
+  const font: FontMode = cfg.display.font !== "auto" ? cfg.display.font
+    : cfg.lang.game === "en" && cfg.lang.ui === "en" && cfg.tiles.pack === "original" ? "original" : "modern";
+  if (font === "modern") {
+    const face = new FontFace(MODERN_FONT, `url(${import.meta.env.BASE_URL}fonts/PressStart2P-Regular.ttf)`);
+    document.fonts.add(await face.load());
+  }
+  renderer.setFont(font);
   const game = new Game(renderer, new Input());
   if (import.meta.env.DEV) (window as unknown as { __game: Game }).__game = game; // used by automated tests
   installMagic(game);

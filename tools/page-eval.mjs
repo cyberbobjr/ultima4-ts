@@ -1,9 +1,10 @@
 // Dev helper: loads the game (?skipintro&seed=1), runs steps like tools/scenarios.mjs and prints
 // the result of each "eval:" step.   node tools/page-eval.mjs "eval:..." "a" "wait:500" ...
 import puppeteer from "puppeteer-core";
-const URL = (process.env.URL ?? "http://127.0.0.1:1420/") + "?skipintro&seed=1";
+const URL = (process.env.URL ?? "http://127.0.0.1:1420/") + "?skipintro&seed=1" + (process.env.QUERY ? "&" + process.env.QUERY : "");
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME ?? "C:/Program Files/Google/Chrome/Application/chrome.exe", headless: true, args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
 const page = await browser.newPage();
+await page.setViewport({ width: 1280, height: 960 });
 page.on("pageerror", (e) => console.log(`[pageerror] ${e.stack ?? e.message}`));
 page.on("console", (m) => { if (m.type() === "error" || m.type() === "warn") console.log(`[${m.type()}] ${m.text()}`); });
 await page.goto(URL, { waitUntil: "networkidle0" });

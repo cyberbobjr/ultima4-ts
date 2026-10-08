@@ -16,16 +16,28 @@ export type TextSource = "avatar" | "title";
 export interface StrSpec { kind: "str"; src: TextSource; ds: number }
 /** `count` word pointers at a DS offset, each to a string (a null pointer gives ""). */
 export interface PtrsSpec { kind: "ptrs"; src: TextSource; ds: number; count: number }
-/** Text written for this port (not in the original executables): lives in the public catalog. */
-export interface PortSpec { kind: "port"; fallback: string | readonly string[] }
+/**
+ * Text written for this port (not in the original executables). It lives in the public catalogs
+ * src/i18n/game/<lang>.json, under the same key. `count` makes it a list.
+ */
+export interface PortSpec { kind: "port"; count?: number }
 export type TextSpec = StrSpec | PtrsSpec | PortSpec;
 
 type SpecInput = number | TextSpec;
-type Resolved<S> = S extends number ? string : S extends PtrsSpec ? readonly string[] : S extends PortSpec ? (S["fallback"] extends string ? string : readonly string[]) : string;
+type Resolved<S> = S extends number ? string : S extends PtrsSpec ? readonly string[] : S extends PortSpec ? (S["count"] extends number ? readonly string[] : string) : string;
 export type Texts<T> = { readonly [K in keyof T]: Resolved<T[K]> };
 
 export const str = (ds: number, src: TextSource = "avatar"): StrSpec => ({ kind: "str", src, ds });
 export const ptrs = (ds: number, count: number, src: TextSource = "avatar"): PtrsSpec => ({ kind: "ptrs", src, ds, count });
+/** A text written for this port (public catalog). */
+export const port = (): PortSpec & { count?: undefined } => ({ kind: "port" });
+/** A list of texts written for this port (public catalog). */
+export const portList = (count: number): PortSpec & { count: number } => ({ kind: "port", count });
+
+/** Replaces {name} placeholders: fmt("{n} Gold", { n: 5 }). */
+export function fmt(template: string, params: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (m, k: string) => (k in params ? String(params[k]) : m));
+}
 
 const registry = new Map<string, TextSpec>();
 let catalog: Record<string, string | readonly string[]> = {};
@@ -54,9 +66,9 @@ export function gameText(key: string): string | readonly string[] {
   const v = catalog[key] ?? fallback[key];
   if (v !== undefined) return v;
   const spec = registry.get(key);
-  if (spec?.kind === "port") return spec.fallback;
   if (!missing.has(key)) { missing.add(key); console.warn(`missing game text: ${key}`); }
-  return spec?.kind === "ptrs" ? Array.from({ length: spec.count }, (_, i) => `${key}[${i}]`) : `<${key}>`;
+  const count = spec?.kind === "ptrs" ? spec.count : spec?.kind === "port" ? spec.count : undefined;
+  return count !== undefined ? Array.from({ length: count }, (_, i) => `${key}[${i}]`) : `<${key}>`;
 }
 
 export function defineTexts<T extends Record<string, SpecInput>>(ns: string, spec: T): Texts<T> {

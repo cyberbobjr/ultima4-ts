@@ -10,6 +10,16 @@ import type { Assets } from "./assets";
 export const SCREEN_W = 320, SCREEN_H = 200;
 export const VIEW_X = 8, VIEW_Y = 8, VIEW_TILES = 11, TILE = 16;
 
+/**
+ * Text rendering: the original 8x8 CHARSET glyphs, or a modern pixel font (Press Start 2P, OFL,
+ * public/fonts) drawn on a higher-resolution UI layer, needed for accented languages. Control glyphs
+ * (moons, cursor, runes, borders: codes < 0x20) always come from the original charset.
+ */
+export type FontMode = "original" | "modern";
+export const MODERN_FONT = "Press Start 2P";
+/** UI layer resolution multiplier for the modern font. */
+const MODERN_SCALE = 4;
+
 export class Renderer {
   readonly gl: THREE.WebGLRenderer;
   readonly ui: CanvasRenderingContext2D;
@@ -21,6 +31,11 @@ export class Renderer {
   private readonly tileAttr: THREE.InstancedBufferAttribute;
   private readonly mapMesh: THREE.InstancedMesh;
   private readonly glyphAtlas: HTMLCanvasElement;
+  private readonly uiCanvas: HTMLCanvasElement;
+  /** 320x200 scratch canvas for indexed pictures and tiles (putImageData ignores the UI scale). */
+  private readonly scratch: CanvasRenderingContext2D;
+  private fontMode: FontMode = "original";
+  private uiScale = 1;
   /** Optional 3D view rendered inside the map viewport (dungeons). */
   view3d: { scene: THREE.Scene; camera: THREE.Camera } | null = null;
 
@@ -74,9 +89,13 @@ export class Renderer {
 
     // UI layer.
     const uiCanvas = document.createElement("canvas");
+    this.uiCanvas = uiCanvas;
     uiCanvas.width = SCREEN_W; uiCanvas.height = SCREEN_H;
     this.ui = uiCanvas.getContext("2d")!;
     this.ui.imageSmoothingEnabled = false;
+    const scratch = document.createElement("canvas");
+    scratch.width = SCREEN_W; scratch.height = SCREEN_H;
+    this.scratch = scratch.getContext("2d", { willReadFrequently: true })!;
     this.uiTexture = new THREE.CanvasTexture(uiCanvas);
     this.uiTexture.flipY = false;
     this.uiTexture.magFilter = this.uiTexture.minFilter = THREE.NearestFilter;
@@ -134,17 +153,43 @@ export class Renderer {
     this.tileAttr.needsUpdate = true;
   }
 
-  /** Copies a full 320x200 indexed picture into the UI layer. */
+  /** Selects the text font; the modern one renders the UI layer at a higher resolution. */
+  setFont(mode: FontMode) {
+    this.fontMode = mode;
+    const scale = mode === "modern" ? MODERN_SCALE : 1;
+    if (scale === this.uiScale) return;
+    this.uiScale = scale;
+    this.uiCanvas.width = SCREEN_W * scale;
+    this.uiCanvas.height = SCREEN_H * scale;
+    this.ui.setTransform(scale, 0, 0, scale, 0, 0);
+    this.ui.imageSmoothingEnabled = false;
+    this.uiTexture.dispose(); // the texture size changed
+  }
+
+  get font(): FontMode { return this.fontMode; }
+
+  /** Copies a full 320x200 indexed picture into the UI layer (replacing what is there). */
   drawPicture(pixels: Uint8Array, transparentBlack = false) {
-    const img = this.ui.createImageData(SCREEN_W, SCREEN_H);
+    const img = this.scratch.createImageData(SCREEN_W, SCREEN_H);
     for (let i = 0; i < pixels.length; i++) {
       const [r, g, b] = EGA_PALETTE[pixels[i]];
       img.data.set([r, g, b, transparentBlack && pixels[i] === 0 ? 0 : 255], i * 4);
     }
-    this.ui.putImageData(img, 0, 0);
+    this.scratch.putImageData(img, 0, 0);
+    this.ui.clearRect(0, 0, SCREEN_W, SCREEN_H);
+    this.ui.drawImage(this.scratch.canvas, 0, 0, SCREEN_W, SCREEN_H, 0, 0, SCREEN_W, SCREEN_H);
   }
 
   drawGlyph(code: number, col: number, row: number) {
+    if (this.fontMode === "modern" && code >= 0x20 && code !== 0x7f) {
+      this.ui.fillStyle = "#000";
+      this.ui.fillRect(col * 8, row * 8, 8, 8);
+      this.ui.fillStyle = "#fff";
+      this.ui.font = `8px "${MODERN_FONT}"`;
+      this.ui.textBaseline = "top";
+      this.ui.fillText(String.fromCharCode(code), col * 8, row * 8 + 0.5);
+      return;
+    }
     this.ui.drawImage(this.glyphAtlas, (code & 0x7f) * 8, 0, 8, 8, col * 8, row * 8, 8, 8);
   }
 
@@ -152,15 +197,17 @@ export class Renderer {
     for (let i = 0; i < text.length; i++) this.drawGlyph(text.charCodeAt(i), col + i, row);
   }
 
-  /** Draws a tile into the UI layer at pixel coordinates. */
+  /** Draws a tile into the UI layer at pixel coordinates (replacing what is there). */
   drawTileUI(t: number, x: number, y: number) {
-    const img = this.ui.createImageData(16, 16);
+    const img = this.scratch.createImageData(16, 16);
     const p = this.assets.tiles[t].pixels;
     for (let i = 0; i < 256; i++) {
       const [r, g, b] = EGA_PALETTE[p[i]];
       img.data.set([r, g, b, 255], i * 4);
     }
-    this.ui.putImageData(img, x, y);
+    this.scratch.putImageData(img, 0, 0);
+    this.ui.clearRect(x, y, 16, 16);
+    this.ui.drawImage(this.scratch.canvas, 0, 0, 16, 16, x, y, 16, 16);
   }
 
   clearRect(x: number, y: number, w: number, h: number) { this.ui.clearRect(x, y, w, h); }

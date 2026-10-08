@@ -1,6 +1,6 @@
 // Location numbering follows the order of the map-file tables in AVATAR.EXE (strings at 0xf77f.. and 0x1073d..).
 // Names and file names are read from the extracted catalog (src/data/text.ts), by DS offset.
-import { defineTexts, lazyList, ptrs, withGetters } from "../data/text";
+import { defineTexts, lazyList, ptrs, withGetters, port } from "../data/text";
 import { HAWKWIND } from "./town/strings";
 
 export const enum LocKind { World, Town, Castle, Village, Dungeon, Shrine }
@@ -26,7 +26,7 @@ export const LOCATION_TEXT = defineTexts("locations", {
   /** upper floor of Lord British's castle (Klimb, 1000:4477) */
   lcbUpper: 0x185d,
   /** shown when entering Lord British's castle (the original prints the table name) */
-  lcbName: { kind: "port", fallback: "Castle of Lord British" },
+  lcbName: port(),
 });
 
 const L = LOCATION_TEXT;
