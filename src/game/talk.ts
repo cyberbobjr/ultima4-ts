@@ -10,6 +10,8 @@ import { LB, TALK } from "./town/strings";
 import { askYN, nl, pause, putc, putNum, readLine, readNumber, say, sayRaw, strnieq, waitKey } from "./prompts";
 import { runShop } from "./shops";
 import { karmaDec, karmaInc, markVirtue, virtueReady, Virtue } from "./karma";
+import { TOPICS, type ConversationTurn } from "./conversation/provider";
+import { conversationProvider } from "./conversation/llm";
 
 const base = (tile: number) => tile & ~1;
 
@@ -38,18 +40,22 @@ async function converse(g: Game, npc: Npc) {
   const members = g.save.members;
 
   const text = async (s: string) => { if (s) { await say(g, s); nl(g); } }; // 1000:A22D
-  // keyword table DS:0x2A90: {word, handler}; the two TLK keywords fill entries 5 and 6
-  const table: [string, (() => Promise<void>) | null][] = [
-    ["bye", null],
-    ["name", async () => { await say(g, d.pronoun, TALK.saysIAm, d.name); nl(g); }],
-    ["look", async () => { await say(g, TALK.youSee); await text(look); }],
-    ["job", () => text(d.job)],
-    ["health", () => text(d.health)],
-    [d.keyword1, () => text(d.response1)],
-    [d.keyword2, () => text(d.response2)],
-    ["join", () => join(g, npc)],
-    ["give", () => give(g, npc)],
+  // handlers of the keyword table DS:0x2A90, in TOPICS order (the two TLK keywords are entries 5 and 6);
+  // which entry an input selects is decided by the conversation provider (keyword matching by default)
+  const table: (() => Promise<void>)[] = [
+    async () => {},
+    async () => { await say(g, d.pronoun, TALK.saysIAm, d.name); nl(g); },
+    async () => { await say(g, TALK.youSee); await text(look); },
+    () => text(d.job),
+    () => text(d.health),
+    () => text(d.response1),
+    () => text(d.response2),
+    () => join(g, npc),
+    () => give(g, npc),
   ];
+  const provider = conversationProvider();
+  const profile = { dialogue: d, place: (g.map as TownMap).loc.name, tile: npc.tile };
+  const history: ConversationTurn[] = [];
 
   await say(g, TALK.youMeet);
   await text(look);
@@ -77,19 +83,16 @@ async function converse(g: Game, npc: Npc) {
       await say(g, d.pronoun, TALK.turnsAway);
       return;
     }
-    let i = 0;
-    for (; i < table.length && table[i][0]; i++) {
-      if (!strnieq(table[i][0], q, 4)) continue;
-      const fn = table[i][1];
-      if (!fn) done = true;
-      else {
-        await fn();
-        if (members !== g.save.members) return; // joined the party
-      }
-      if (!done && d.questionTrigger === i) await question(g, d);
-      break;
-    }
-    if (i === table.length || !table[i][0]) await say(g, TALK.cannotHelp);
+    const reply = await provider.answer(profile, q, history);
+    history.push({ input: q, topic: reply.topic, text: reply.text ?? "" });
+    const i = reply.topic ? TOPICS.indexOf(reply.topic) : -1;
+    if (i === 0) done = true; // bye
+    else if (i > 0) {
+      await table[i]();
+      if (members !== g.save.members) return; // joined the party
+      if (d.questionTrigger === i) await question(g, d);
+    } else if (reply.text) { await say(g, reply.text); nl(g); }
+    else await say(g, TALK.cannotHelp);
   } while (!done);
   await say(g, TALK.bye);
 }
