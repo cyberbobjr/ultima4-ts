@@ -1,0 +1,58 @@
+@font-face { font-family: "Press Start 2P"; src: url("/fonts/PressStart2P-Regular.ttf") format("truetype"); font-display: block; }
+/* HTML interface over the game canvas. Landscape: the bar on the right; portrait: below. */
+:root {
+  --ui-bg: #0d0d18;
+  --ui-panel: #14142a;
+  --ui-line: #5555ff;
+  --ui-text: #f0f0ff;
+  --ui-dim: #9a9ac8;
+  --ui-accent: #55ffff;
+  --ui-font: "Press Start 2P", ui-monospace, monospace;
+  --tap: 44px;
+}
+html, body { margin: 0; height: 100%; background: #000; overflow: hidden; color: var(--ui-text); }
+body { font-family: var(--ui-font); font-size: 11px; -webkit-text-size-adjust: none; touch-action: manipulation; }
+#app { position: fixed; inset: 0; display: flex; flex-direction: row; }
+#stage { position: relative; flex: 1; min-width: 0; min-height: 0; display: flex; align-items: center; justify-content: center; }
+#stage canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; touch-action: none; }
+#overlay { position: absolute; inset: 0; pointer-events: none; }
+#overlay > * { pointer-events: auto; }
+#overlay.open { background: rgba(0, 0, 0, 0.45); }
+
+/* command bar */
+.bar { display: flex; flex-direction: column; gap: 8px; padding: 8px; width: 230px; box-sizing: border-box; background: var(--ui-bg); border-left: 2px solid var(--ui-line); overflow-y: auto; }
+.bar button { min-height: var(--tap); min-width: var(--tap); font: inherit; color: var(--ui-text); background: var(--ui-panel); border: 1px solid var(--ui-line); border-radius: 4px; cursor: pointer; padding: 4px 6px; }
+.bar button:hover, .bar button:focus-visible { border-color: var(--ui-accent); outline: none; }
+.bar button:active { background: var(--ui-line); }
+.bar-menus { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.bar-menus .menu { font-size: 9px; padding: 4px 2px; }
+.bar-pad { display: grid; grid-template-columns: repeat(3, var(--tap)); grid-template-rows: repeat(3, var(--tap)); gap: 4px; justify-content: center; }
+.pad-north { grid-area: 1 / 2; } .pad-west { grid-area: 2 / 1; } .pad-east { grid-area: 2 / 3; } .pad-south { grid-area: 3 / 2; }
+.bar-cmds { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.bar-cmds .cmd { display: flex; align-items: center; gap: 6px; text-align: left; font-size: 9px; }
+.cmd-key { color: var(--ui-accent); min-width: 1.2em; }
+.bar-keys { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; font-size: 9px; }
+@media (max-aspect-ratio: 1/1) {
+  #app { flex-direction: column; }
+  .bar { width: auto; max-height: 50vh; border-left: none; border-top: 2px solid var(--ui-line); display: grid; align-content: start;
+    grid-template-columns: auto 1fr; grid-template-areas: "menus menus" "pad cmds" "keys keys"; }
+  .bar-menus { grid-area: menus; grid-template-columns: repeat(5, 1fr); }
+  .bar-pad { grid-area: pad; align-self: start; }
+  .bar-cmds { grid-area: cmds; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); align-content: start; }
+  .bar-keys { grid-area: keys; }
+}
+#app.no-bar .bar { display: none; }
+
+/* panels */
+.panel { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92%, 640px); max-height: 90%; display: flex; flex-direction: column; background: var(--ui-panel); border: 2px solid var(--ui-line); border-radius: 6px; box-shadow: 0 0 0 4px #000; }
+.panel-wide { width: 94%; height: 90%; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid var(--ui-line); }
+.panel-head h2 { margin: 0; font-size: 12px; color: var(--ui-accent); }
+.panel-close, .panel button { min-height: 32px; min-width: 32px; font: inherit; color: var(--ui-text); background: var(--ui-bg); border: 1px solid var(--ui-line); border-radius: 4px; cursor: pointer; }
+.panel button:hover, .panel button:focus-visible { border-color: var(--ui-accent); outline: none; }
+.panel-body { overflow: auto; padding: 10px; line-height: 1.6; }
+
+/* text entry */
+.text-entry { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); display: flex; gap: 6px; padding: 8px; background: var(--ui-panel); border: 2px solid var(--ui-line); border-radius: 6px; }
+.text-entry-field { font: inherit; font-size: 16px; min-height: var(--tap); width: 14em; background: #000; color: var(--ui-text); border: 1px solid var(--ui-line); padding: 0 8px; }
+.text-entry button { min-height: var(--tap); font: inherit; color: var(--ui-text); background: var(--ui-bg); border: 1px solid var(--ui-line); border-radius: 4px; }

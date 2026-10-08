@@ -85,6 +85,13 @@ export class Game {
   /** Overworld/town context of the key commands. */
   get context(): CommandContext { return this.map?.kind === "town" ? "town" : "world"; }
 
+  /** Where the player is now, for the command bar and the help: a fight, a dungeon, a town or the world. */
+  get mode(): CommandContext {
+    if (this.activeMember >= 0) return "combat";
+    if (this.save && this.save.location >= 17 && this.save.location <= 24) return "dungeon";
+    return this.context;
+  }
+
   /** Commands of the core modules (1000:1C06 dispatch); C, M, U, S, P, N, F, I come from magic.ts and items.ts. */
   private registerCommands() {
     const out: readonly CommandContext[] = ["world", "town"], all: readonly CommandContext[] = ["world", "town", "dungeon"];

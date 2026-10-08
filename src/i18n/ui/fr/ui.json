@@ -1,0 +1,13 @@
+{
+  "ui.close": "Fermer",
+  "ui.enter": "Entrée",
+  "ui.escape": "Échap",
+  "ui.type": "Taper…",
+  "ui.typeHint": "Taper du texte pour le jeu",
+  "ui.typeOnly": "Taper sans Entrée",
+  "ui.typeOnlyShort": "Touches",
+  "ui.north": "Nord",
+  "ui.south": "Sud",
+  "ui.east": "Est",
+  "ui.west": "Ouest"
+}

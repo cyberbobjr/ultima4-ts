@@ -1,0 +1,13 @@
+{
+  "ui.close": "Close",
+  "ui.enter": "Enter",
+  "ui.escape": "Esc",
+  "ui.type": "Type…",
+  "ui.typeHint": "Type text for the game",
+  "ui.typeOnly": "Type without Enter",
+  "ui.typeOnlyShort": "Keys",
+  "ui.north": "North",
+  "ui.south": "South",
+  "ui.east": "East",
+  "ui.west": "West"
+}

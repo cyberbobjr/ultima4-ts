@@ -128,6 +128,7 @@ export class Renderer {
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+    new ResizeObserver(() => this.resize()).observe(document.body);
   }
 
   /**
@@ -227,7 +228,9 @@ export class Renderer {
   resize() {
     // The original 320x200 mode was shown on a 4:3 monitor (non-square pixels).
     const aspect = 4 / 3;
-    let w = window.innerWidth, h = window.innerHeight;
+    // fits the canvas's container (the stage next to the command bar), or the window
+    const box = this.gl.domElement.parentElement;
+    let w = box?.clientWidth || window.innerWidth, h = box?.clientHeight || window.innerHeight;
     if (w / h > aspect) w = Math.floor(h * aspect); else h = Math.floor(w / aspect);
     this.gl.setPixelRatio(window.devicePixelRatio);
     this.gl.setSize(w, h);
