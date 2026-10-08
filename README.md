@@ -56,14 +56,21 @@ automated tests); the game instance is exposed as `window.__game`.
 
 | Path | Contents |
 |---|---|
-| `src/formats` | decoders for the original files: RLE/LZW pictures (`compression.ts`), EGA tiles/font, WORLD.MAP / ULT / CON / DNG, TLK dialogues, PARTY.SAV (byte-exact round trip) |
-| `src/render` | three.js renderer: tile atlas + instanced 11x11 tile grid, 320x200 UI layer, scissored 3D viewport |
-| `src/game` | engine: main loop and commands (`game.ts`), conversations (`talk.ts`), shops and Lord British (`shops.ts`), combat (`combat.ts`), dungeons (`dungeon.ts`), spells (`magic.ts`), items (`items.ts`), shrines (`shrine.ts`), intro (`intro.ts`) |
-| `src/intro` | title screen and character creation (gypsy cards), driven by data read from `TITLE.EXE` |
+| `tools/extract-assets.ts` | one-time extraction of the original files into `assets/original/` (EXEPACK unpacker in `tools/exe`) |
+| `src/formats` | decoders of the original formats, used by the extractor and the tests |
+| `src/assets` | access to the extracted assets (`AssetStore`): tiles, font, pictures, maps, dialogues, texts, tile packs |
+| `src/data` | rule tables cited by address (`tables.ts`) and the text registry (`text.ts`: texts declared by their location in the executables) |
+| `src/game` | engine: state and main loop (`game.ts`), command registry (`commands.ts`), party commands (`actions.ts`), places and towns (`places.ts`), transports, world (`world/`), conversations (`talk.ts`, `conversation/` providers), shops, combat, dungeons, spells, items, shrines, endgame, prompts, karma; engine messages in `texts/` |
+| `src/render` | three.js renderer: tile packs (any tile size), 11x11 grid, 320x200 UI layer (original or modern font), 3D viewport |
+| `src/ui` | screen layers (`layers.ts`), status panel, HTML interface (`dom/`: command bar, panels, pointer/touch) and panels (`panels/`: inventory, world map, help, settings, debug) |
+| `src/i18n` | languages: interface catalogs and the texts written for this port, per language |
+| `src/intro` | title screen and character creation (gypsy cards) |
 | `src/dungeon` | first-person dungeon view (three.js) and dungeon tables |
-| `src/data` | rule tables extracted from `AVATAR.EXE` (monsters, weapons, armour, spells, shops, karma events...) |
-| `src-tauri` | Tauri v2 shell: reads game files, stores saves |
-| `docs` | reverse-engineering notes |
+| `src/config` | configuration (`config.json`) and its defaults |
+| `tests`, `tools/scenarios.mjs` | unit tests (Vitest) and headless screenshot regression scenarios |
+| `tools/packs` | tile pack tools (scaled packs, HD generation with a local ComfyUI, review sheets) |
+| `src-tauri` | Tauri v2 shell: saves and configuration in the app data directory |
+| `docs` | reverse-engineering notes, translation guide |
 
 ## Controls (keyboard, as in the original)
 
@@ -72,6 +79,10 @@ I)gnite torch · J)immy · K)limb · L)ocate · M)ix · N)ew order · O)pen · P
 R)eady · S)earch · T)alk · U)se · W)ear · X)it · Y)ell · Z)tats · Space: pass
 
 In dungeons: Up/Down to advance/retreat, Left/Right to turn.
+
+Interface: F1 help · F2 inventory · F3 world map · F10 options · F12 debug (with `?debug` or the debug option).
+Language, font, tile pack and controls are in the options (saved in `config.json`). In dev, `?lang=fr`,
+`?pack=<name>` and `?debug` override them for the session.
 
 ## iPad / touch
 
@@ -99,3 +110,13 @@ mixing, items, shrines and meditation, and the endgame (Abyss, Codex).
 
 Some details are interpretations rather than exact ports (timings that depended on CPU speed in the
 original, the 3D look of the dungeons); they are marked in the source.
+
+Added in this port: English and French (texts of the original game translated locally from the
+extracted files, see `docs/TRANSLATING.md`), interchangeable tile packs (HD packs can be generated with
+`tools/packs`), HTML interface (command bar, inventory, world map, help, options, debug panel), mouse and
+touch play (tap to walk, context menus, swipes) and an installable web app. The conversation layer is
+ready for an LLM provider (`src/game/conversation`), not enabled yet.
+
+Not done yet: Hole up and saving inside dungeons (DNGMAP.SAV); several spells and items (Blink, Gate,
+Winds, Dispell, Energy, Open, cannons, New Order, telescope, altars, Codex) were never played through —
+the debug panel prepares each of them.

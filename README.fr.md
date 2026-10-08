@@ -58,14 +58,21 @@ par les tests automatisés) ; l'instance du jeu est exposée dans `window.__game
 
 | Dossier | Contenu |
 |---|---|
-| `src/formats` | décodeurs des fichiers originaux : images RLE/LZW (`compression.ts`), tuiles et police EGA, WORLD.MAP / ULT / CON / DNG, dialogues TLK, PARTY.SAV (aller-retour exact) |
-| `src/render` | rendu three.js : atlas de tuiles + grille 11x11 instanciée, couche UI 320x200, vue 3D découpée |
-| `src/game` | moteur : boucle et commandes (`game.ts`), conversations (`talk.ts`), boutiques et Lord British (`shops.ts`), combat (`combat.ts`), donjons (`dungeon.ts`), sorts (`magic.ts`), objets (`items.ts`), sanctuaires (`shrine.ts`), intro (`intro.ts`) |
-| `src/intro` | écran titre et création du personnage (cartes de la gitane), alimentés par les données de `TITLE.EXE` |
+| `tools/extract-assets.ts` | extraction unique des fichiers originaux vers `assets/original/` (décompresseur EXEPACK dans `tools/exe`) |
+| `src/formats` | décodeurs des formats originaux, utilisés par l'extracteur et les tests |
+| `src/assets` | accès aux ressources extraites (`AssetStore`) : tuiles, police, images, cartes, dialogues, textes, packs de tuiles |
+| `src/data` | tables de règles citées par adresse (`tables.ts`) et registre des textes (`text.ts` : textes déclarés par leur emplacement dans les exécutables) |
+| `src/game` | moteur : état et boucle (`game.ts`), registre des commandes (`commands.ts`), commandes du groupe (`actions.ts`), lieux et villes (`places.ts`), transports, monde (`world/`), conversations (`talk.ts`, fournisseurs `conversation/`), boutiques, combat, donjons, sorts, objets, sanctuaires, fin du jeu, saisies, karma ; messages du moteur dans `texts/` |
+| `src/render` | rendu three.js : packs de tuiles (toute taille), grille 11x11, couche UI 320x200 (police originale ou moderne), vue 3D |
+| `src/ui` | calques de l'écran (`layers.ts`), panneau de statut, interface HTML (`dom/` : barre de commandes, panneaux, souris/tactile) et panneaux (`panels/` : inventaire, carte du monde, aide, options, débogage) |
+| `src/i18n` | langues : catalogues de l'interface et textes écrits pour ce portage, par langue |
+| `src/intro` | écran titre et création du personnage (cartes de la gitane) |
 | `src/dungeon` | vue des donjons à la première personne (three.js) et tables des donjons |
-| `src/data` | tables de règles extraites d'`AVATAR.EXE` (monstres, armes, armures, sorts, boutiques, karma…) |
-| `src-tauri` | coquille Tauri v2 : lecture des fichiers du jeu, sauvegardes |
-| `docs` | notes de rétro-ingénierie |
+| `src/config` | configuration (`config.json`) et valeurs par défaut |
+| `tests`, `tools/scenarios.mjs` | tests unitaires (Vitest) et scénarios de non-régression par captures |
+| `tools/packs` | outils de packs de tuiles (agrandissement, génération HD avec un ComfyUI local, planches de revue) |
+| `src-tauri` | coquille Tauri v2 : sauvegardes et configuration dans le dossier de données de l'application |
+| `docs` | notes de rétro-ingénierie, guide de traduction |
 
 ## Commandes (clavier, comme l'original)
 
@@ -74,6 +81,10 @@ I)gnite torch · J)immy · K)limb · L)ocate · M)ix · N)ew order · O)pen · P
 R)eady · S)earch · T)alk · U)se · W)ear · X)it · Y)ell · Z)tats · Espace : passer
 
 Dans les donjons : Haut/Bas pour avancer/reculer, Gauche/Droite pour tourner.
+
+Interface : F1 aide · F2 inventaire · F3 carte du monde · F10 options · F12 débogage (avec `?debug` ou l’option).
+Langue, police, pack de tuiles et contrôles se règlent dans les options (enregistrées dans `config.json`). En dev,
+`?lang=fr`, `?pack=<nom>` et `?debug` les remplacent pour la session.
 
 ## iPad / tactile
 
@@ -106,3 +117,13 @@ boutiques, auberges, guérisseurs, Lord British, Hawkwind, compagnons), combat t
 Certains détails sont des interprétations plutôt que des portages exacts (temporisations qui
 dépendaient de la vitesse du CPU dans l'original, rendu 3D des donjons) ; ils sont signalés dans le
 code.
+
+Ajouté dans ce portage : anglais et français (les textes du jeu original sont traduits localement à partir
+des fichiers extraits, voir `docs/TRANSLATING.md`), packs de tuiles interchangeables (des packs HD peuvent être
+générés avec `tools/packs`), interface HTML (barre de commandes, inventaire, carte du monde, aide, options,
+débogage), jeu à la souris et au doigt (déplacement par appui, menus contextuels, glissements) et application
+web installable. La couche de conversation est prête pour un fournisseur LLM (`src/game/conversation`), non activé.
+
+Pas encore fait : Hole up et sauvegarde dans les donjons (DNGMAP.SAV) ; plusieurs sorts et objets (Blink, Gate,
+Winds, Dispell, Energy, Open, canons, New Order, télescope, autels, Codex) n’ont jamais été joués de bout en bout —
+le panneau de débogage prépare chacun d’eux.
