@@ -155,6 +155,13 @@ class Combat {
 
   get monstersLeft() { return this.monsters.some((m) => m.alive); }
   get partyLeft() { return this.party.some((m) => m.present && m.p.status !== "D"); }
+  /** A dungeon room (mode 6): the room arena carries its exit direction. */
+  get inRoom() { return this.req.context === "dungeon" && "exitDir" in this.req.arena; }
+  /**
+   * 1000:5A28: the fight is over when no member is left, or (except in dungeon rooms) no monster.
+   * In a room the party stays after the last kill until everyone walks out (to reach an altar, a chest...).
+   */
+  get over() { return !this.partyLeft || (!this.inRoom && !this.monstersLeft); }
 
   // ------------------------------------------------------------ player side
 
@@ -164,7 +171,7 @@ class Combat {
     try {
       for (;;) {
         for (const m of this.party) {
-          if (!this.monstersLeft || !this.partyLeft) break;
+          if (this.over) break;
           if (!m.present || m.p.status === "D") continue;
           if (m.p.status === "S") continue;
           this.active = m.i; g.activeMember = m.i;
@@ -176,7 +183,7 @@ class Combat {
           }
           this.active = -1; g.activeMember = -1;
         }
-        if (!this.monstersLeft || !this.partyLeft) break;
+        if (this.over) break;
         await this.monstersTurn();
         g.tickEffects();
         if (!this.partyLeft) break;
@@ -491,6 +498,11 @@ class Combat {
   private finish(): CombatResult {
     const g = this.g;
     const evil = this.req.monsters.some((m) => !isNonEvil(m.tile));
+    // leaving a dungeon room: only "Leave Room!", printed by the dungeon (1000:837A, mode 6)
+    if (this.inRoom) {
+      if (this.party.every((m) => m.p.status === "D")) return { outcome: "lost", chest: false };
+      return { outcome: this.monstersLeft ? "fled" : "won", lastKill: this.lastKill, chest: false };
+    }
     if (!this.partyLeft) {
       if (this.party.every((m) => m.p.status === "D")) return { outcome: "lost", chest: false };
       if (this.monstersLeft) {
