@@ -1,6 +1,6 @@
 // Messages of the town modules, by location in AVATAR.EXE (or port() for texts written for this port,
 // in src/i18n/game/<lang>/town.json). See src/data/text.ts.
-import { defineTexts } from "../../data/text";
+import { defineTexts, portList } from "../../data/text";
 
 export const MSG_TOWN = defineTexts("msg.town", {
   /**
@@ -11,4 +11,6 @@ export const MSG_TOWN = defineTexts("msg.town", {
   topicJoin: 0x2a57, topicGive: 0x2a5c,
   /** 1000:A4B4: articles that make the attacker rather than the NPC's name */
   articleA: 0x2c7e, articleThe: 0x2c81,
+  /** Articles of translated NPC names, besides the two above (empty in English). */
+  moreArticles: portList(0),
 });

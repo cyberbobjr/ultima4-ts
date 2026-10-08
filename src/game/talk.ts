@@ -76,7 +76,9 @@ async function converse(g: Game, npc: Npc) {
     if (r < d.turnAwayProb) {
       if (d.turnAwayProb - r > 0x3f) {
         const a = MSG_TOWN.articleA, the = MSG_TOWN.articleThe; // DS:0x2C7E, DS:0x2C81
-        const who = strnieq(d.name, a, a.length) || strnieq(d.name, the, the.length) ? d.pronoun : d.name;
+        // other languages add their own articles ("un ", "l'"...) for translated names
+        const articles = [a, the, ...MSG_TOWN.moreArticles];
+        const who = articles.some((x) => x && strnieq(d.name, x, x.length)) ? d.pronoun : d.name;
         await say(g, who, TALK.onGuard);
         npc.movement = 0xff;
         npc.hostile = true;

@@ -48,7 +48,9 @@ async function say1(g: Game, text: string) {
     left--;
     if (zero) {
       left = 0;
-      while (i + left < text.length && text[i + left] !== "\n" && text[i + left] !== " ") left++;
+      // a space before ! ? : ; (French typography) stays with the word, so the sign never starts a line
+      const glued = (k: number) => text[k] === " " && "!?:;»".includes(text[k + 1] ?? "");
+      while (i + left < text.length && text[i + left] !== "\n" && (text[i + left] !== " " || glued(i + left))) left++;
       if (left + col(g) > CON_W && col(g) !== 0) {
         if (lines++ === 12) { await pageWait(g); lines = 0; }
         nl(g);

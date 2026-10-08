@@ -1,2 +1,11 @@
 {
+  "msg.town.moreArticles": [
+    "un ",
+    "une ",
+    "le ",
+    "la ",
+    "l'",
+    "les ",
+    "des "
+  ]
 }
