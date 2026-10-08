@@ -303,7 +303,7 @@ const HANDLERS: ((c: Ctx) => Promise<void> | void)[] = [
     if (!outdoorsOnly(c)) return;
     const d = await c.g.askDir("From Dir: ");
     if (!d || !pay(c)) return;
-    c.g.wind = ({ W: 0, N: 1, E: 2, S: 3 } as Record<Dir, number>)[d];
+    c.g.sky.wind = ({ W: 0, N: 1, E: 2, S: 3 } as Record<Dir, number>)[d];
   },
   // X X-it 1000:6D22: level = 0xFFFF -> back to the surface
   (c) => { if (dungeonOnly(c) && pay(c)) c.g.dungeon.exit?.(); },
