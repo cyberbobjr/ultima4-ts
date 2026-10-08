@@ -39,18 +39,12 @@ export function addDungeonLight(g: Game, turns: number) {
   g.dungeon.refresh?.();
 }
 
-/** Optional extensions of CombatApi used when combat.ts provides them (Dispell, Energy, Open in combat). */
-type CombatApiExt = CombatApi & {
-  tileAt?: (x: number, y: number) => number;
-  setTile?: (x: number, y: number, t: number) => void;
-};
-
 /** Dungeon orientation offsets DS:080C/0810 (0 W, 1 N, 2 E, 3 S). */
 const DDX = [-1, 0, 1, 0], DDY = [0, -1, 0, 1];
 const WALKABLE = new Set(WALKABLE_TILES);
 const ABYSS = 24;
 
-interface Ctx { g: Game; who: number; spell: number; api: CombatApiExt | null; mode: number; }
+interface Ctx { g: Game; who: number; spell: number; api: CombatApi | null; mode: number; }
 
 const failed = (g: Game) => g.con.print(M.failed); // 1000:6399
 
@@ -94,6 +88,50 @@ async function statusSpell(c: Ctx, prompt: string, apply: (p: Ctx) => boolean) {
   if (!apply({ ...c, who })) failed(c.g);
 }
 
+/**
+ * The overworld is seen through a 32x32 window (DS:8742) copied from the 32x32 world blocks. 1000:26B6 rebuilds it
+ * around the party (position 8..23 in it, DS:959C/959D); a step (1000:2839/2891/28E9/2941) moves that position and
+ * scrolls the window by 16 only when it leaves 5..26, keeping the half still in view. Blink searches this window, and
+ * a field dispelled on the overworld is only cleared in it: it is back once its square leaves the window or the
+ * window is rebuilt (Blink, Gate, coming back to the overworld...).
+ */
+interface WorldWindow { world: Game["world"]; x: number; y: number; wx: number; wy: number; cleared: { x: number; y: number; tile: number }[] }
+const windows = new WeakMap<Game, WorldWindow>();
+const windowPos = (v: number) => ((v & 15) < 8 ? (v & 15) + 16 : v & 15); // 1000:26B6
+
+function restoreFields(w: WorldWindow, keep: (f: { x: number; y: number }) => boolean) {
+  w.cleared = w.cleared.filter((f) => { if (keep(f)) return true; setTile(w.world, f.x, f.y, f.tile); return false; });
+}
+
+/** 1000:26B6: window rebuilt around the party from the world blocks. */
+function rebuildWindow(g: Game): WorldWindow {
+  const old = windows.get(g);
+  if (old) restoreFields(old, () => false);
+  const w = { world: g.world, x: g.px, y: g.py, wx: windowPos(g.px), wy: windowPos(g.py), cleared: [] };
+  windows.set(g, w);
+  return w;
+}
+
+/** Window of the party now (rebuilt if the party was moved without being tracked). */
+function worldWindow(g: Game): WorldWindow {
+  const w = windows.get(g);
+  return w && w.world === g.world && w.x === g.px && w.y === g.py ? w : rebuildWindow(g);
+}
+
+/** Move listener: one step scrolls the window as 1000:2839..2941 do, anything else rebuilds it. */
+function trackWindow(g: Game) {
+  const w = windows.get(g);
+  // first move of a game, or back on the overworld (1000:26B6 is called when leaving a town or a dungeon)
+  if (!w || w.world !== g.world) { if (g.map.kind === "world") rebuildWindow(g); return; }
+  if (g.map.kind !== "world") { restoreFields(w, () => false); windows.delete(g); return; }
+  const dx = ((g.px - w.x + 128) & 255) - 128, dy = ((g.py - w.y + 128) & 255) - 128;
+  if (Math.abs(dx) + Math.abs(dy) !== 1) { rebuildWindow(g); return; }
+  w.x = g.px; w.y = g.py; w.wx += dx; w.wy += dy;
+  if (w.wx < 5) w.wx += 16; else if (w.wx > 26) w.wx -= 16;
+  if (w.wy < 5) w.wy += 16; else if (w.wy > 26) w.wy -= 16;
+  restoreFields(w, (f) => ((f.x - w.x + w.wx) & 255) < 32 && ((f.y - w.y + w.wy) & 255) < 32);
+}
+
 /** Blink 1000:65AA: farthest walkable square of the loaded 32x32 window in that direction. */
 async function blink(c: Ctx) {
   const g = c.g, s = g.save, tr = s.transport || T.AVATAR;
@@ -103,12 +141,11 @@ async function blink(c: Ctx) {
     if (!d || !pay(c)) return;
     if ((s.x & s.y) < 0xc0) {
       const [dx, dy] = DIRS[d];
-      // party position inside the window (1000:26B6)
-      const wx = (s.x & 15) < 8 ? (s.x & 15) + 16 : s.x & 15, wy = (s.y & 15) < 8 ? (s.y & 15) + 16 : s.y & 15;
+      const { wx, wy } = worldWindow(g); // party position inside the window
       let lx = wx, ly = wy;
       while (lx >= 0 && lx < 32 && ly >= 0 && ly < 32) { lx += dx; ly += dy; }
       do { lx -= dx; ly -= dy; } while (!(lx === wx && ly === wy) && !WALKABLE.has(tileAt(g.world, s.x + lx - wx, s.y + ly - wy)));
-      if (lx !== wx || ly !== wy) { g.setPos(s.x + lx - wx, s.y + ly - wy); return; }
+      if (lx !== wx || ly !== wy) { g.setPos(s.x + lx - wx, s.y + ly - wy); rebuildWindow(g); return; }
     }
   }
   failed(g);
@@ -130,11 +167,15 @@ async function dispell(c: Ctx) {
       if (g.map.kind === "world" || (x >= 0 && y >= 0 && x <= 31 && y <= 31)) {
         const t = tileAt(g.map, x, y);
         // the field becomes the tile the party stands on (DS:9444)
-        if (t >= T.POISON_FIELD && t <= T.SLEEP_FIELD) { setTile(g.map, x, y, tileAt(g.map, g.px, g.py)); return; }
+        if (t >= T.POISON_FIELD && t <= T.SLEEP_FIELD) {
+          setTile(g.map, x, y, tileAt(g.map, g.px, g.py));
+          if (g.map.kind === "world") worldWindow(g).cleared.push({ x: x & 255, y: y & 255, tile: t });
+          return;
+        }
       }
     } else {
       const api = c.api!, x = api.casterPos.x + dx, y = api.casterPos.y + dy;
-      if (api.tileAt && api.setTile && x >= 0 && y >= 0 && x < 11 && y < 11) {
+      if (x >= 0 && y >= 0 && x < 11 && y < 11) {
         const t = api.tileAt(x, y);
         if (t >= T.POISON_FIELD && t <= T.SLEEP_FIELD) { api.setTile(x, y, api.tileAt(api.casterPos.x, api.casterPos.y)); return; }
       }
@@ -165,7 +206,8 @@ async function energy(c: Ctx) {
       const d = await g.askDir(M.dirEnergy);
       if (!d || !pay(c)) return;
       const api = c.api!, [dx, dy] = DIRS[d], x = api.casterPos.x + dx, y = api.casterPos.y + dy;
-      if (x >= 0 && y >= 0 && x < 11 && y < 11 && (!api.tileAt || WALKABLE.has(api.tileAt(x, y))) && api.placeField(x, y, field)) return;
+      // only the terrain is tested (list DS:0904, 1000:2999): the field is also laid under a creature
+      if (x >= 0 && y >= 0 && x < 11 && y < 11 && WALKABLE.has(api.tileAt(x, y))) { api.setTile(x, y, field); return; }
     }
   }
   failed(g);
@@ -180,6 +222,7 @@ async function gate(c: Ctx) {
   if (k < 0 || k === 0x30 || !pay(c)) return;
   const dest = GATE_DESTINATIONS[k - 0x31];
   g.setPos(dest.x, dest.y);
+  rebuildWindow(g);
 }
 
 /** Open 1000:6B02: chest under the party (never trapped outside combat), or under the caster in combat. */
@@ -207,7 +250,7 @@ async function open(c: Ctx) {
   } else {
     // 1000:7337: chest under the caster; trap evade roll uses the caster's DEX
     const api = c.api!, { x, y } = api.casterPos;
-    if (api.tileAt && api.setTile && api.tileAt(x, y) === T.CHEST) {
+    if (api.tileAt(x, y) === T.CHEST) {
       api.setTile(x, y, T.DUNGEON_FLOOR);
       const h = c.g.dungeon, s = g.save;
       if (c.g.save.location >= 17 && h.cell && h.setCell && h.cell(s.x, s.y, s.dngLevel) === 0x40) h.setCell(s.x, s.y, s.dngLevel, 0);
@@ -215,7 +258,7 @@ async function open(c: Ctx) {
       return;
     }
   }
-  g.con.print(M.notHereOpen);
+  g.con.print(M.notHere); // 1000:11AA
 }
 
 /** Y-up 1000:6D3D / Z-down 1000:6DC1: random empty square of the new level (32 tries). */
@@ -344,7 +387,7 @@ function reagentList(g: Game) {
 }
 
 /** Cast 1000:6E4A. `api` is set in combat (caster = the member whose turn it is). */
-async function cast(g: Game, api: CombatApiExt | null) {
+async function cast(g: Game, api: CombatApi | null) {
   const s = g.save, mode = api ? 4 : gameMode(g);
   let who: number;
   if (!api) {
@@ -408,6 +451,7 @@ async function mix(g: Game) {
 }
 
 export function installMagic(g: Game) {
+  g.onMove(trackWindow);
   g.commands.register(
     { key: "c", id: "cast", contexts: ["world", "town", "dungeon"], run: async (env) => { await cast(g, null); endsTurn(env); } },
     { key: "c", id: "cast", contexts: ["combat"], run: (env) => cast(g, env.combat!) },

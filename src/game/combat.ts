@@ -520,7 +520,6 @@ class Combat {
       sleepAt: (x, y) => { const t = this.monsterAt(x, y); if (t) t.asleep = true; },
       tileAt: (x, y) => this.tileAt(x, y),
       setTile: (x, y, t) => { if (this.tileAt(x, y) >= 0) this.tiles[y * 11 + x] = t; },
-      placeField: (x, y, tile) => { if (this.tileAt(x, y) >= 0 && !this.occupied(x, y)) { this.tiles[y * 11 + x] = tile; return true; } return false; },
       flash: (x, y, tile) => this.flash(x, y, tile),
     };
   }
@@ -535,7 +534,6 @@ export interface CombatApi {
   damageAt(x: number, y: number, dmg: number): void;
   setHpAt(x: number, y: number, hp: number): void;
   sleepAt(x: number, y: number): void;
-  placeField(x: number, y: number, tile: number): boolean;
   tileAt(x: number, y: number): number;
   setTile(x: number, y: number, t: number): void;
   flash(x: number, y: number, tile?: number): Promise<void>;
