@@ -1,110 +1,163 @@
 # PixelLab — AI pixel-art generation for the tile packs
 
-[PixelLab](https://www.pixellab.ai/docs) is a hosted API specialised in **pixel art**. Unlike a general
-diffusion model run through ComfyUI (the first HD attempt: blurry results that had to be reduced, lost
-shapes, inconsistent animation frames), its models produce native pixel art at the requested size,
-can be forced onto a palette, and have dedicated tools for tilesets and animations.
+Everything learned while evaluating [PixelLab](https://www.pixellab.ai/docs) for an HD tile pack (October 2026),
+so the work can be resumed in a later session (with a paid plan). Read the **Next session** section first.
 
-- API: `https://api.pixellab.ai/v2`, `Authorization: Bearer <token>`.
-- Reference: [OpenAPI](https://api.pixellab.ai/v2/openapi.json), [interactive docs](https://api.pixellab.ai/v2/docs),
-  [LLM summary](https://api.pixellab.ai/v2/llms.txt); official JS and Python SDKs and an MCP server exist.
-- The token goes in `.env` as `PIXELLAB_KEY=...` (git-ignored). `tools/packs/pixellab.mjs` is a small client:
-  it reads the token from `.env`, never prints it, retries while the free plan's single job slot is busy,
-  and polls background jobs. `node tools/packs/pixellab.mjs balance` shows the remaining credits.
+## Context: what was tried before
 
-## Endpoints useful for Ultima IV tiles
+| Approach | Result |
+|---|---|
+| Local ComfyUI, Qwen-Image-Edit-2511 + Lightning LoRA, image-to-image per tile (removed from the repo) | **Rejected by the user**: general diffusion output, blurry once reduced to 64 px, shapes lost (castles), and every animation frame drawn independently (moongates, monsters no longer animated consistently). |
+| Algorithmic `tools/packs/upscale.ts` (Scale2x/3x/4x = AdvMAME/EPX) | **Current HD pack** (`scale4x-derived`): faithful, original EGA palette, smoothed diagonals, animations intact — but it is the 1987 art, only smoother. |
+| PixelLab (this document) | Native pixel art, palette control, animation tools: good for people and monsters; terrain needs a redesign (see below). |
 
-| Need | Endpoint | Why |
+The tile packs format is in `src/assets/store.ts` (`TilePack`): `assets/packs/<name>/pack.json` + an atlas of
+16×16 tiles of `tileSize` pixels, same indices as SHAPES.EGA; `animations: [{kind: "scroll", tiles}]` for
+water/lava/fields. Packs derived from the original tiles end in `-derived` (git-ignored, local branch only).
+Try a pack with `?pack=<name>` in dev, or in Options (F10).
+
+## The API
+
+- Base URL `https://api.pixellab.ai/v2`, header `Authorization: Bearer <token>`.
+- References: [OpenAPI](https://api.pixellab.ai/v2/openapi.json) (complete schemas and enums),
+  [interactive docs](https://api.pixellab.ai/v2/docs), [llms.txt](https://api.pixellab.ai/v2/llms.txt)
+  (endpoint list by area), guides [map tiles](https://www.pixellab.ai/docs/guides/map-tiles) and
+  [rotating a character](https://www.pixellab.ai/docs/guides/rotating-a-character). Official JS/Python SDKs
+  and an MCP server exist (not used here).
+- Token: `PIXELLAB_KEY=...` in `.env` at the project root (git-ignored).
+- Client: `tools/packs/pixellab.mjs` — `call(method, route, body)` (reads the token from `.env`, never prints it,
+  retries on HTTP 429), `b64(png)` (→ `{type: "base64", base64, format: "png"}`), `save(image, file)`
+  (accepts the `data:image/png;base64,` prefix the API returns), `waitJob(id)` (polls
+  `GET /background-jobs/{id}`). `node tools/packs/pixellab.mjs balance` prints the credits.
+
+### Quirks found
+
+- **Free/trial plan: one job at a time** — a second request returns HTTP 429 "maximum number of concurrent
+  jobs"; the client waits and retries. Generate sequentially.
+- **Bitforge and pixflux are synchronous** (the response holds the image); most Pro tools are asynchronous
+  (`background_job_id`, then poll `GET /background-jobs/{id}`; statuses `processing`, `completed`, `failed`).
+- Responses carry `usage` (`{"type": "generations", "generations": 1}` on the trial, `{"type": "usd"}` on
+  credits). `GET /balance` → `{"credits": {...}, "subscription": {"status": "trial", "generations": n, "total": 40}}`.
+- `GET /pro-flash/cost` needs `operation` (`create|edit|inpaint|character|object`), `width`, `height`;
+  `GET /pro-flash/capabilities` lists sizes (16…128, custom 16–256 step 4). Pro Flash creation ≈ 5 units.
+- Pro tools (`*-v2`, `*-pro`, objects, tiles-pro, tilesets pro) cost **20–40 generations** per call;
+  bitforge/pixflux cost **1**.
+- Enums (exact strings): `outline` = `single color black outline | single color outline | selective outline | lineless`;
+  `shading` = `flat shading | basic shading | medium shading | detailed shading | highly detailed shading`;
+  `detail` = `low detail | medium detail | highly detailed`; `view` = `side | low top-down | high top-down`;
+  `direction` = `north … north-west` (8).
+- `init_image_strength` is an integer (default 300; useful range seen: 150–500). Images are PNG base64.
+
+## Endpoints relevant to Ultima IV
+
+| Need | Endpoint | Notes |
 |---|---|---|
-| Redraw an original tile at 32/64 px | `POST /create-image-bitforge` (max 200×200 area) | `init_image` + `init_image_strength` (how much the original is kept), `color_image` (**forced palette**: the 16 EGA colours), `style_image` + `style_strength` (match an approved tile), `outline`, `shading`, `detail`, `view`, `seed`. Synchronous, cheap (1 generation). |
-| Same, larger images | `POST /create-image-pixflux` (32×32 to 400×400) | Init image, forced palette, transparent background. No style image. |
-| Consistent set from approved tiles | `POST /generate-with-style-v2` (1–4 style images, async) | New tiles in the style of reference tiles (output size = style size). |
-| Terrain transitions | `POST /create-tileset` (Wang set: 16 or 25 tiles; `lower_description`/`upper_description`, `transition_size`, `tile_size` 16/32 or 64 in `mode: "pro"`, reference images per terrain, `color_image`) | Seamless grass ↔ water ↔ swamp … sets. The game has fixed shore tiles (0x31–0x34), so a Wang set would only feed those and a future smoother coastline. |
-| Terrain/feature tiles in one call | `POST /create-tiles-pro` (`tile_type: "square_topdown"`, `tile_view: "top-down"`, `tile_size` 16–128, numbered descriptions "1). grass 2). forest…", `style_images`) | Several variations at once, consistent with each other. Pro tool (more expensive). |
-| Animation frames from frame 0 | `POST /animate-with-text-v3` (first frame + action, 4–16 frames), `POST /interpolation-v2` (first + last frame) | Frames derived from one image, so the design stays the same — the main failure of the ComfyUI attempt. |
-| Edit several frames together | `POST /edit-images-v2` (1–16 images, `edit_with_text` or `edit_with_reference`) | Applies the same change to all frames of a monster at once. Pro tool. |
-| Clean-up | `POST /reduce-colors` (`palette_image`: force frames onto the EGA palette together), `POST /correct-pixelart`, `POST /resize` | Shared palette across an animation; fix stray pixels. |
-| Characters with directions | `POST /create-character-with-4-directions` | Not needed by Ultima IV (front-facing sprites), useful for a remake. |
+| Redraw / create one tile (≤ 200×200 area) | `POST /create-image-bitforge` | `description`, `image_size`, `init_image` + `init_image_strength`, `color_image` (**forced palette**), `style_image` + `style_strength` (0–100), `inpainting_image` + `mask_image`, `no_background`, `outline`/`shading`/`detail`/`view`/`direction`, `seed`. Sync, 1 generation. |
+| Larger images (32×32–400×400) | `POST /create-image-pixflux` | init image, forced palette, transparent background; no style image. |
+| New images in the style of references | `POST /generate-with-style-v2` | 1–4 `style_images`; output size = style size; async. |
+| Several terrain/feature tiles at once | `POST /create-tiles-pro` | `tile_type: "square_topdown"`, `tile_view: "top-down"` (or `tile_view_angle`), `tile_size` 16–128, numbered `description` ("1). grass 2). forest …"), `style_images`, `outline_mode: "segmentation"` for cleaner seamless edges, `tile_feature: "tileset"` for a Wang set. Pro. |
+| Terrain transitions (coasts…) | `POST /create-tileset` | Wang set (16 tiles, 25 with `transition_size` 1.0) between `lower_description` / `upper_description`; `tile_size` 16/32 (64 in `mode: "pro"`), `view`, per-terrain reference images, `color_image`. Async. |
+| Animation from frame 0 | `POST /animate-with-text-v3` (first frame ≤ 256 px + `action`, 4–16 frames, `drift_threshold` colour de-flicker), `POST /interpolation-v2` (first + last frame) | Keeps the design across frames. Pro cost. |
+| Same edit on several frames | `POST /edit-images-v2` (`edit_with_text` / `edit_with_reference`, 1–16 images) | Pro. |
+| Clean-up | `POST /reduce-colors` (`palette_image` forces several frames onto ONE palette together, optional ordered dithering), `POST /correct-pixelart`, `POST /resize`, `POST /unzoom`, `POST /remove-background` | |
+| Objects / map objects | `POST /create-1-direction-object` (16–256 px, `style_images`), `POST /map-objects` | Pro. |
 
-Pro tools (`*-v2`, `*-pro`, objects, tiles-pro) cost **20–40 generations** per call; bitforge/pixflux cost 1.
+## Experiments and results
 
-## First test (2 tiles, bitforge, 64×64, EGA palette forced)
+Scripts are in `tools/packs/pixellab-experiments/` (they write to `test-output/pixellab/…`, local);
+the pilot is `tools/packs/pixellab-pilot.mjs`. All on the trial plan (38 of 40 generations used).
 
-Input: the original 16×16 tile enlarged ×4 (nearest), `color_image` = the 16 EGA colours,
-`outline: "single color black outline"`, `shading: "basic shading"`, `detail: "medium detail"`,
-`view: "high top-down"`, `seed: 1`. Script: `test-output/pixellab/try.mjs` (local, not versioned).
+### 1. Init strength (bitforge 64×64, init = original ×4 nearest, EGA palette forced) — `bitforge-strength.mjs`
 
-| Tile | `init_image_strength` 500 | `init_image_strength` 200 |
+| Tile | strength 500 | strength 200 |
 |---|---|---|
-| Castle (0x0B) | identical to the original (nothing gained) | redrawn but **distorted** (towers/gate rearranged) |
-| Orc (0xC0) | identical to the original | **good**: same pose, colours and silhouette, real detail, clean pixels |
+| Castle (0x0B) | identical to the original | redrawn but **distorted** |
+| Orc (0xC0) | identical to the original | **good**: same pose and colours, real detail, clean pixels |
 
-Findings:
-- Output is real pixel art on the EGA palette: no blur, no reduction step, no colour cleanup needed.
-- The **init strength is the key setting** and depends on the tile: buildings and terrain need to stay close
-  to the original (≈ 300–400), creatures can be reinterpreted more freely (≈ 150–250). Tune per category.
-- Text adds what the 16×16 original cannot show (horns, eyes, armour…), so each tile needs a short description
-  (the ones in `docs/PIXEL_ART_PROMPTS.md` can be reused).
+The strength is the key setting and depends on the tile category.
 
-## Pilot (21 tiles + 1 animation frame, `tools/packs/pixellab-pilot.mjs`)
+### 2. Pilot: 21 tiles + 1 animation frame — `pixellab-pilot.mjs`
 
-Bitforge 64×64, EGA palette forced, init = original ×4, strength 350 (terrain, places), 300 (objects),
-220 (people, monsters); 22 generations. The script writes a review sheet and a test pack
-`assets/packs/pixellab-derived` (Scale4x for the other tiles): try it with `?pack=pixellab-derived`.
+Bitforge 64×64, EGA palette forced, `outline: single color black outline`, `shading: basic shading`,
+`detail: medium detail`; strength 350 terrain/places, 300 objects, 220 people/monsters; `seed: 1`.
+Output: review sheet + test pack `assets/packs/pixellab-derived` (Scale4x for the other tiles).
 
 | Category | Result |
 |---|---|
-| People (Avatar, mage, guard, king) and monsters (orc, skeleton, dragon) | **Convincing**: same pose, colours and silhouette as the original, real detail, crisp pixels, readable at game size. |
-| Animation frame (orc frame 2 with frame 1 as `style_image`) | **Consistent** with frame 1 (same design and colours, pose of the original frame 2): the approach works for monster animations. |
-| Objects (chest, ankh, ship) | Small improvements; the ship gains detail. |
-| Terrain (grass, forest, mountains, water, swamp) and places (town, castle, village, dungeon, shrine, moongate) at 350 | **Almost unchanged** from the original (a few stray pixels); the swamp turned into grey blocks and the forest trunks into yellow. A lower strength (≈ 250) and better descriptions are needed, with seam checks, or a dedicated terrain tool (`create-tiles-pro` / `create-tileset`). |
+| People (Avatar, mage, guard, king), monsters (orc, skeleton, dragon) | **Convincing**: faithful pose/colours/silhouette, real detail, crisp, readable at game size. |
+| Animation (orc frame 2 with frame 1 as `style_image`, `style_strength` 60) | **Consistent** with frame 1. |
+| Objects (chest, ankh, ship) | Small gains (the ship). |
+| Terrain and places at 350 | Almost unchanged; swamp → grey blocks, forest trunks → yellow. |
 
-Conclusion: worth it for people, monsters and their animations (≈ 110 tiles: classes, townsfolk, the 36
-monsters × 2–4 frames); terrain and places need another round of tuning (or keep Scale4x for them).
+The user's verdict on the sheet: "correct, but no more" — not the 2026 look wanted.
 
-## Terrain test (9 generations)
+### 3. Terrain — `terrain-ega.mjs`, `terrain-modern.mjs`
 
-1. **Bitforge, init = original tile, EGA palette forced, strength 150, "detailed shading / highly detailed /
-   lineless"** (grass, forest, hills, mountains, water, swamp): **failure**. The originals are mostly black
-   with a few coloured pixels; with the EGA palette forced the model produces dark, muddy textures, grey water,
-   and visible seams when tiled 3×3.
-2. **Bitforge, text only (no init image), free palette, same style options**, description ending with
-   "top-down game terrain tile, seamless tileable texture filling the whole square edge to edge, modern high
-   quality pixel art like Stardew Valley or Eastward, vibrant natural colors, soft shading, no border":
-   **clearly modern** — a lush grass meadow, a convincing forest canopy, a calm (a bit flat) sea; tiling 3×3
-   shows a visible repetition of the grass but no hard seams.
+1. Init = original, **EGA palette forced**, strength 150, `lineless / detailed shading / highly detailed`:
+   **failure** (the originals are mostly black: muddy dark textures, grey water, visible seams in 3×3).
+2. **Text only, free palette**, same options, description + "top-down game terrain tile, seamless tileable texture
+   filling the whole square edge to edge, modern high quality pixel art like Stardew Valley or Eastward, vibrant
+   natural colors, soft shading, no border, no frame, no objects": **clearly modern** (lush meadow, great forest
+   canopy, calm sea a bit flat); 3×3 tiling shows repetition but no hard seams.
+3. In the game, new grass and sea next to old scrub/shallows look like a **patchwork**: terrain must be replaced
+   as a whole set.
 
-What this means for a "2026" pack:
-- Terrain must be **redesigned, not redrawn**: free palette, text-driven, and generated as a **coherent set**
-  (grass, scrub, forest, hills, mountains, swamp, shallows, sea, deep sea, lava, the 4 shore corners, floors,
-  fields…) so neighbouring terrains match; `create-tiles-pro` (numbered descriptions in one call, style images)
-  or `create-tileset` (Wang transitions, e.g. grass↔sea for coasts) are the right tools — Pro cost.
-- Mixing new terrain with old tiles does not work: in the test pack, new grass and sea next to the old scrub and
-  shallows look like a patchwork.
-- Places, objects, people and monsters are drawn on **black** in the original; on colourful terrain they need
-  a **transparent background** and the renderer must draw the terrain under them (today one opaque tile per
-  square). That is an engine change (two tile layers: terrain, then objects/creatures; an `underlay` terrain per
-  place tile in `pack.json`) to do before generating such a pack.
-- Water and fields scroll in the engine: the sea tile must stay seamless vertically.
+## Two possible art directions
 
-## Proposed pipeline (for a `pixellab-derived` pack)
+- **A. Faithful upgrade** (the 1987 tiles, more detailed): EGA palette forced, init image, per-category strength
+  (people/monsters ≈ 200–250, objects ≈ 300, places ≈ 300–350), style anchor. Works for creatures; little gain on
+  terrain and places. Cheapest (bitforge, ~1 generation per tile).
+- **B. Modern redesign ("2026")**: free palette, text-driven, a coherent terrain set (Pro tools), creatures and
+  places with transparent backgrounds drawn over the terrain. Needs the engine change below and a paid plan.
 
-1. **Style anchor**: generate and hand-pick 3–4 key tiles (grass, castle, avatar, orc) with bitforge at
-   64 px; they become the `style_image` of every later call so the whole pack shares one look.
-2. **Static tiles** (terrain, places, objects): bitforge, init = original ×4, EGA palette, style anchor,
-   strength by category; terrain tiles checked for seams in 3×3 (regenerate with another seed if needed).
-3. **Animated tiles** (monsters 4 frames, people 2 frames, moongate 4 frames, ships/horses):
-   generate frame 0 as in step 2, then derive the other frames from it — `interpolation-v2` / `animate-with-text-v3`
-   guided by the original frames, or bitforge per frame with frame 0 as `style_image` and a higher strength —
-   then `reduce-colors` on all frames together with the EGA `palette_image`.
-4. **Water, lava, fields** keep their original vertical scrolling: generate one seamless tile; the renderer
-   scrolls it (pack `animations`).
-5. Review on a contact sheet next to the original and the Scale4x pack, regenerate rejects, assemble the
-   atlas (`assets/packs/pixellab-derived/`, local branch only: it is derived from the original tiles).
+## Engine prerequisite for direction B (not done yet)
 
-## Cost
+Today each map square is **one opaque tile**: towns, castles, people, monsters, ships are drawn on black over
+nothing. For B:
+- two tile layers in `src/render/renderer.ts`: the terrain layer, then the object/creature layer with alpha;
+- `src/game/view.ts` (`viewTiles`) returns both: the map tile as terrain, NPCs/objects/party/moongates on top;
+  combat arenas and the dungeon rooms likewise;
+- in `pack.json`: an `underlay` map `{placeTile: terrainTile}` (e.g. towns/castles/shrines over grass) for map
+  tiles that are themselves "objects", and a flag per tile telling whether it has transparency;
+- the intro vignette and the dungeon 3D view use the original 16 px tiles: decide whether they follow the pack.
 
-The account is on the trial: 40 generations (2 left after the tests, the pilot and the terrain test). A full pack is at least 256 bitforge
-calls plus retries and animation work (Pro tools at 20–40 generations each), so it needs a paid plan; the
-free plan also runs **one job at a time**. Start with a pilot of ~20 tiles (one of each category) to
-validate the settings before generating the rest.
+## Tile inventory (SHAPES.EGA, 256 tiles)
+
+- Terrain (≈ 20): 0–8 (seas, shallows, swamp, grass, scrub, forest, hills, mountains), 22 dungeon floor,
+  0x31–0x34 shore corners, 0x3E/0x3F floors, 0x44–0x47 fields, 0x4C lava, 0x48 solid, 0x7F wall.
+- Places (≈ 12): 9 dungeon, 10 town, 11 castle, 12 village, 13–15 Lord British's castle, 29 ruins, 30 shrine,
+  0x40–0x43 moongate (4 frames).
+- Transports/objects (≈ 25): ships 16–19, horses 20–21, balloon 24, bridges 23/25/26, ladders 27/28, column,
+  ship parts, rocks, corpse, rubble, doors, chest, ankh, altar, campfire, missiles/flashes 0x4D–0x4F.
+- People (32): classes 0x20–0x2F (2 frames), townsfolk 0x50–0x5F (2 frames).
+- Monsters (128): sea 0x80–0x8F (2 frames), land 0x90–0xFF (36 × 4 frames, but some are 2 + 2).
+- Letters 0x60–0x7E (signs): keep as they are (enlarged).
+
+## Proposed pipeline
+
+1. Decide A or B; for B, implement the engine prerequisite first (test it with the Scale4x pack plus a few
+   transparent test tiles).
+2. **Style anchor**: generate and pick by hand 3–4 key tiles (grass, castle, avatar, orc); use them as
+   `style_image` / `style_images` everywhere so the pack shares one look.
+3. **Terrain**: B → `create-tiles-pro` with numbered descriptions of the whole set + `create-tileset` for
+   grass↔sea coasts; check seams in 3×3 and the vertical seam of the scrolling tiles (water, lava, fields).
+4. **Static tiles** (places, objects): bitforge (A: init + strength; B: transparent background).
+5. **Animated tiles**: frame 0 first, then the other frames from it (bitforge with frame 0 as `style_image`
+   — proven in the pilot — or `animate-with-text-v3` / `interpolation-v2`), then `reduce-colors` on all frames
+   together.
+6. Review sheet next to the original and Scale4x, regenerate rejects, assemble `assets/packs/<name>-derived/`
+   (pack.json + atlas; reuse the assembly code at the end of `pixellab-pilot.mjs`).
+
+## Cost estimate
+
+A: ≈ 256 bitforge calls + retries ≈ 300–400 generations. B: terrain set and transitions with Pro tools
+(several calls at 20–40 each) + ≈ 160 creature/place tiles + animations ≈ 1000+ generations. The trial
+(40 generations, one job at a time) is not enough for either: a subscription is needed.
+
+## Next session
+
+1. `node tools/packs/pixellab.mjs balance` (token in `.env`).
+2. Read this file, look at `test-output/pixellab/pilot/sheet.png` and `test-output/pixellab/terrain2/sheet.png`
+   if they still exist (otherwise re-run the experiment scripts, ~25 generations).
+3. Ask the user: direction A or B, tile size (64 recommended), budget.
+4. For B, start with the engine prerequisite (two layers + `underlay`), then the terrain set.
