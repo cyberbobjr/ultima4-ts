@@ -127,6 +127,10 @@ class Codex {
     await ticks(2);
     for (let k = 0; k < 4; k++) await shake(g);
     await ticks(3);
+    // the codex picture gives way to the rune of infinity (EGA.DRV entry 0x22 with RUNE_5, DS:08B8/08C3)
+    this.layer.clear();
+    await this.picture("RUNE_5.EGA");
+    await ticks(3);
     const texts = [M.ending, M.proven, M.endlessQuest, M.livingGift, M.stray, M.returnNow];
     for (const t of texts) { this.say(t); await pause(g); }
     this.layer.clear();
