@@ -7,6 +7,7 @@ import type { Npc, TownMap } from "./maps";
 import { T } from "./tiles";
 import { JOIN_RULES } from "../data/tables";
 import { LB, TALK } from "./town/strings";
+import { MSG_TOWN } from "./texts/town";
 import { askYN, nl, pause, putc, putNum, readLine, readNumber, say, sayRaw, strnieq, waitKey } from "./prompts";
 import { runShop } from "./shops";
 import { karmaDec, karmaInc, markVirtue, virtueReady, Virtue } from "./karma";
@@ -74,7 +75,8 @@ async function converse(g: Game, npc: Npc) {
     const r = rand8();
     if (r < d.turnAwayProb) {
       if (d.turnAwayProb - r > 0x3f) {
-        const who = strnieq(d.name, "a ", 2) || strnieq(d.name, "the ", 4) ? d.pronoun : d.name;
+        const a = MSG_TOWN.articleA, the = MSG_TOWN.articleThe; // DS:0x2C7E, DS:0x2C81
+        const who = strnieq(d.name, a, a.length) || strnieq(d.name, the, the.length) ? d.pronoun : d.name;
         await say(g, who, TALK.onGuard);
         npc.movement = 0xff;
         npc.hostile = true;

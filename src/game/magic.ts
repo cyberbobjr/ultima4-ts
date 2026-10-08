@@ -13,6 +13,7 @@ import { addDrawHook, clearStatusRows, drawStatusTitle, gameMode, shake } from "
 import { askKey, askMember as askPlayer } from "./prompts";
 import { canAct, isAlive } from "./party";
 import { peerAtMap } from "./items";
+import { MSG_MAGIC as M } from "./texts/magic";
 
 /**
  * Hooks filled by dungeon.ts while the party is underground (the level data lives in the dungeon module).
@@ -49,7 +50,7 @@ const ABYSS = 24;
 
 interface Ctx { g: Game; who: number; spell: number; api: CombatApiExt | null; mode: number; }
 
-const failed = (g: Game) => g.con.println("Failed!"); // 1000:6399
+const failed = (g: Game) => g.con.print(M.failed); // 1000:6399
 
 /** 1000:63B4: MP are paid, then Negate makes the spell fail. */
 function pay(c: Ctx): boolean {
@@ -59,9 +60,9 @@ function pay(c: Ctx): boolean {
   return true;
 }
 
-function outdoorsOnly(c: Ctx) { if (c.mode === 1) return true; c.g.con.println("Outdoors Only!"); failed(c.g); return false; }
-function combatOnly(c: Ctx) { if (c.mode > 3) return true; c.g.con.println("Combat Only!"); failed(c.g); return false; }
-function dungeonOnly(c: Ctx) { if (c.mode === 3) return true; c.g.con.println("Dungeon Only!"); failed(c.g); return false; }
+function outdoorsOnly(c: Ctx) { if (c.mode === 1) return true; c.g.con.print(M.outdoorsOnly); failed(c.g); return false; }
+function combatOnly(c: Ctx) { if (c.mode > 3) return true; c.g.con.print(M.combatOnly); failed(c.g); return false; }
+function dungeonOnly(c: Ctx) { if (c.mode === 3) return true; c.g.con.print(M.dungeonOnly); failed(c.g); return false; }
 
 /** Square in front of the party underground. */
 function ahead(g: Game): [number, number] {
@@ -72,7 +73,7 @@ function ahead(g: Game): [number, number] {
 /** Projectile spells 1000:6466: Magic Missile 'M', Iceball 'N', Fireball 'O', Kill 0x8C. */
 async function projectile(c: Ctx, kind: number) {
   if (!combatOnly(c)) return;
-  const d = await c.g.askDir("Dir: ");
+  const d = await c.g.askDir(M.dirProjectile);
   if (!d || !pay(c)) return;
   const hit = await c.api!.shoot(d, kind);
   if (!hit) { failed(c.g); return; }
@@ -96,7 +97,7 @@ async function blink(c: Ctx) {
   const g = c.g, s = g.save, tr = s.transport || T.AVATAR;
   if (tr > 0x13 && tr !== T.BALLOON) {
     if (!outdoorsOnly(c)) return;
-    const d = await g.askDir("Dir: ");
+    const d = await g.askDir(M.dirBlink);
     if (!d || !pay(c)) return;
     if ((s.x & s.y) < 0xc0) {
       const [dx, dy] = DIRS[d];
@@ -119,7 +120,7 @@ async function dispell(c: Ctx) {
     const [x, y] = ahead(g), h = g.dungeon;
     if (h.cell && h.setCell && (h.cell(x, y, s.dngLevel) & 0xf0) === 0xa0) { h.setCell(x, y, s.dngLevel, 0); h.refresh?.(); return; }
   } else if (c.mode > 2 || !(g.inBalloon && s.balloonState !== 0)) {
-    const d = await g.askDir("Dir: ");
+    const d = await g.askDir(M.dirDispell);
     if (!d || !pay(c)) return;
     const [dx, dy] = DIRS[d];
     if (c.mode < 4) {
@@ -143,7 +144,7 @@ async function dispell(c: Ctx) {
 /** Energy field 1000:6882: F)ire, L)ightning, P)oison, S)leep. */
 async function energy(c: Ctx) {
   const g = c.g, s = g.save;
-  g.con.print("Energy type? ");
+  g.con.print(M.energyType);
   const k = (await g.getKey()).toUpperCase();
   const field = ({ F: T.FIRE_FIELD, L: T.ENERGY_FIELD, P: T.POISON_FIELD, S: T.SLEEP_FIELD } as Record<string, number>)[k] ?? -1;
   if (field >= 0) {
@@ -159,7 +160,7 @@ async function energy(c: Ctx) {
       return;
     }
     if (c.mode > 3) {
-      const d = await g.askDir("Dir: ");
+      const d = await g.askDir(M.dirEnergy);
       if (!d || !pay(c)) return;
       const api = c.api!, [dx, dy] = DIRS[d], x = api.casterPos.x + dx, y = api.casterPos.y + dy;
       if (x >= 0 && y >= 0 && x < 11 && y < 11 && (!api.tileAt || WALKABLE.has(api.tileAt(x, y))) && api.placeField(x, y, field)) return;
@@ -173,7 +174,7 @@ async function gate(c: Ctx) {
   const g = c.g, tr = g.save.transport || T.AVATAR;
   if (tr < 0x14 || tr === T.BALLOON) { failed(g); return; }
   if (!outdoorsOnly(c)) return;
-  const k = await askKey(g, "To Phase:", "0", "8");
+  const k = await askKey(g, M.toPhase, "0", "8");
   if (k < 0 || k === 0x30 || !pay(c)) return;
   const dest = GATE_DESTINATIONS[k - 0x31];
   g.setPos(dest.x, dest.y);
@@ -212,7 +213,7 @@ async function open(c: Ctx) {
       return;
     }
   }
-  g.con.println("Not Here!");
+  g.con.print(M.notHereOpen);
 }
 
 /** Y-up 1000:6D3D / Z-down 1000:6DC1: random empty square of the new level (32 tries). */
@@ -242,16 +243,16 @@ async function view(c: Ctx) {
 /** Spell handlers, table DS:216E. */
 const HANDLERS: ((c: Ctx) => Promise<void> | void)[] = [
   // A Awaken 1000:6558
-  (c) => statusSpell(c, "Who:", ({ g, who }) => { const p = g.save.players[who]; if (p.status !== "S") return false; p.status = "G"; return true; }),
+  (c) => statusSpell(c, M.whoAwaken, ({ g, who }) => { const p = g.save.players[who]; if (p.status !== "S") return false; p.status = "G"; return true; }),
   blink, // B
   // C Cure 1000:669B
-  (c) => statusSpell(c, "Who:", ({ g, who }) => { const p = g.save.players[who]; if (p.status !== "P") return false; p.status = "G"; return true; }),
+  (c) => statusSpell(c, M.whoCure, ({ g, who }) => { const p = g.save.players[who]; if (p.status !== "P") return false; p.status = "G"; return true; }),
   dispell, // D
   energy, // E
   (c) => projectile(c, T.HIT_FLASH), // F Fireball 'O'
   gate, // G
   // H Heal 1000:6A40: 75..99 HP (1000:09B1)
-  (c) => statusSpell(c, "Who?", ({ g, who }) => {
+  (c) => statusSpell(c, M.whoHeal,({ g, who }) => {
     const p = g.save.players[who];
     if (!isAlive(p)) return false;
     p.hp = Math.min(p.hpMax, p.hp + (rand8() % 25) + 75);
@@ -270,7 +271,7 @@ const HANDLERS: ((c: Ctx) => Promise<void> | void)[] = [
   // R Resurrect 1000:6B68: not in combat; HP is left as it is
   async (c) => {
     if (c.mode < 4) {
-      const who = await askPlayer(c.g, "Who:");
+      const who = await askPlayer(c.g, M.whoResurrect);
       if (who < 0 || !pay(c)) return;
       const p = c.g.save.players[who];
       if (p.status === "D") { p.status = "G"; return; }
@@ -301,7 +302,7 @@ const HANDLERS: ((c: Ctx) => Promise<void> | void)[] = [
   // W Winds 1000:6CC3: the wind comes from the given direction (DS:96F2: 0 W, 1 N, 2 E, 3 S)
   async (c) => {
     if (!outdoorsOnly(c)) return;
-    const d = await c.g.askDir("From Dir: ");
+    const d = await c.g.askDir(M.fromDir);
     if (!d || !pay(c)) return;
     c.g.sky.wind = ({ W: 0, N: 1, E: 2, S: 3 } as Record<Dir, number>)[d];
   },
@@ -315,7 +316,7 @@ const HANDLERS: ((c: Ctx) => Promise<void> | void)[] = [
 function mixtureList(g: Game) {
   return addDrawHook(g, (r) => {
     clearStatusRows(r);
-    drawStatusTitle(r, "Mixtures");
+    drawStatusTitle(r, M.mixturesTitle);
     let row = 1, col = 24;
     for (let i = 0; i < 26 && col <= 0x26; i++) {
       const n = g.save.mixtures[i];
@@ -330,7 +331,7 @@ function mixtureList(g: Game) {
 function reagentList(g: Game) {
   return addDrawHook(g, (r) => {
     clearStatusRows(r);
-    drawStatusTitle(r, "Reagents");
+    drawStatusTitle(r, M.reagentsTitle);
     let row = 1;
     for (let i = 0; i < 8; i++) {
       const n = g.save.reagents[i];
@@ -345,23 +346,23 @@ async function cast(g: Game, api: CombatApiExt | null) {
   const s = g.save, mode = api ? 4 : gameMode(g);
   let who: number;
   if (!api) {
-    g.con.println("Cast Spell!");
-    who = await askPlayer(g, "Player:");
+    g.con.print(M.castSpell);
+    who = await askPlayer(g, M.player);
     if (who < 0) return;
-    if (!canAct(s.players[who])) { g.con.println("Disabled!"); return; }
+    if (!canAct(s.players[who])) { g.con.print(M.disabled); return; }
   } else {
     g.con.println("");
     who = s.players.indexOf(api.caster);
   }
   const restore = mixtureList(g);
   let k: number;
-  try { k = await askKey(g, "Spell:", "A", "Z"); } finally { restore(); }
+  try { k = await askKey(g, M.spell, "A", "Z"); } finally { restore(); }
   if (k < 0) return;
   const spell = k - 0x41;
-  g.con.println(`${SPELLS[spell].name}!`);
-  if (s.mixtures[spell] === 0) { g.con.println("None left!"); return; }
+  g.con.print(SPELLS[spell].name + M.spellBang);
+  if (s.mixtures[spell] === 0) { g.con.print(M.noneLeft); return; }
   s.mixtures[spell]--; // consumed before the MP check
-  if (s.players[who].mp < SPELLS[spell].mp) { g.con.println("M.P. too low!"); failed(g); return; }
+  if (s.players[who].mp < SPELLS[spell].mp) { g.con.print(M.mpTooLow); failed(g); return; }
   await HANDLERS[spell]({ g, who, spell, api, mode });
 }
 
@@ -369,10 +370,10 @@ async function cast(g: Game, api: CombatApiExt | null) {
 async function mix(g: Game) {
   const s = g.save;
   for (;;) {
-    g.con.println("Mix Reagents");
+    g.con.print(M.mixReagents);
     let k: number;
     const restoreM = mixtureList(g);
-    try { k = await askKey(g, "For Spell:", "A", "Z"); } finally { restoreM(); }
+    try { k = await askKey(g, M.forSpell, "A", "Z"); } finally { restoreM(); }
     if (k < 0) return;
     const spell = k - 0x41;
     g.con.println(SPELLS[spell].name);
@@ -381,22 +382,22 @@ async function mix(g: Game) {
     const restoreR = reagentList(g);
     try {
       while (!done) {
-        const r = await askKey(g, "Reagent:", "A", "H");
+        const r = await askKey(g, M.reagent, "A", "H");
         if (r === -2) { s.reagents.splice(0, 8, ...saved); return; } // Esc: reagents given back, mixing ends
         if (r === -1) {
-          if (mask === 0) g.con.println("\nNothing mixed!");
+          if (mask === 0) g.con.print(M.nothingMixed);
           else {
-            g.con.println("\nYou mix the Reagents, and...");
+            g.con.print(M.youMix);
             if (SPELLS[spell].reagentMask === mask) {
-              g.con.println("Success!\n");
+              g.con.print(M.success);
               s.mixtures[spell] = Math.min(99, s.mixtures[spell] + 1);
-            } else g.con.println("It Fizzles!\n");
+            } else g.con.print(M.fizzles);
           }
           done = true;
           continue;
         }
         const i = r - 0x41;
-        if (s.reagents[i] === 0) { g.con.println("None left!"); done = true; continue; } // reagents already added are lost
+        if (s.reagents[i] === 0) { g.con.print(M.noneLeft); done = true; continue; } // reagents already added are lost
         mask |= 0x80 >> i;
         s.reagents[i]--;
       }

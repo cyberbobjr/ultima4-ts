@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { tlkProvider } from "../src/game/conversation/tlk";
 import type { NpcProfile } from "../src/game/conversation/provider";
+import { setGameText } from "../src/data/text";
+
+// the keyword table words (DS:0x2A90) come from the game catalog
+beforeAll(() => setGameText({
+  "msg.town.topicBye": "bye", "msg.town.topicName": "name", "msg.town.topicLook": "look", "msg.town.topicJob": "job",
+  "msg.town.topicHealth": "health", "msg.town.topicJoin": "join", "msg.town.topicGive": "give",
+}));
 
 const npc: NpcProfile = {
   place: "Testville", tile: 0x52,

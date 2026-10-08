@@ -10,7 +10,8 @@ import { Console } from "./console";
 import { Input, type Key } from "./input";
 import { DIR_NAMES, DIRS, tileAt, type Dir, type MapCtx, type Npc, type WorldMap } from "./maps";
 import { slowChance, T, tileFlags, Walk } from "./tiles";
-import { MAX_MP_BY_CLASS } from "../data/tables";
+import { CLASSES, MAX_MP_BY_CLASS } from "../data/tables";
+import { MSG_CORE } from "./texts/core";
 import { runCombat, type CombatRequest, type CombatResult } from "./combat";
 import { HORN_EFFECT } from "./items";
 import { LayerStack } from "../ui/layers";
@@ -29,7 +30,7 @@ import { board, exitTransport, sail, yell } from "./transport";
 import { closeDoors, descend, enter, jimmy, klimb, leaveTown, moveNpcs, open, talk } from "./places";
 import { attack, getChest, holeUp, locate, openChest, quitSave, readyWeapon, wearArmour, ztats, ztatsFor } from "./actions";
 
-export const CLASS_NAMES = ["Mage", "Bard", "Fighter", "Druid", "Tinker", "Paladin", "Ranger", "Shepherd"];
+export const CLASS_NAMES = CLASSES;
 
 export { rand };
 export type { WorldObject };
@@ -90,7 +91,7 @@ export class Game {
     const cmd = (key: string, id: string, contexts: readonly CommandContext[], run: (g: Game) => unknown): Command =>
       ({ key, id, contexts, run: async () => { await run(this); } });
     this.commands.register(
-      cmd(" ", "pass", out, (g) => { g.con.println("Pass"); g.endTurn(); }),
+      cmd(" ", "pass", out, (g) => { g.con.print(MSG_CORE.pass); g.endTurn(); }),
       cmd("a", "attack", out, attack),
       cmd("b", "board", out, board),
       cmd("d", "descend", out, descend),
@@ -137,7 +138,7 @@ export class Game {
   private async mainLoop() {
     for (;;) {
       const k = await this.input.next(this.map.kind === "world" ? 8000 : 6000);
-      if (!k) { this.con.println("Pass"); this.endTurn(); }
+      if (!k) { this.con.print(MSG_CORE.pass); this.endTurn(); }
       else await this.command(k);
       if (this.pendingShrine >= 0) {
         const v = this.pendingShrine;
@@ -159,12 +160,12 @@ export class Game {
     const ctx = this.context;
     const c = this.commands.get(k.key, ctx);
     if (c) await c.run({ g: this, ctx });
-    else this.con.println("Bad command!");
+    else this.con.print(MSG_CORE.badCommand);
   }
 
   // ---------------------------------------------------------------- prompts
 
-  async askDir(prompt = "Dir: "): Promise<Dir | null> {
+  async askDir(prompt = MSG_CORE.dir): Promise<Dir | null> {
     this.con.print(prompt);
     for (;;) {
       const k = await this.input.next();
@@ -209,7 +210,7 @@ export class Game {
     if (s.food >= s.members) s.food -= s.members;
     else {
       s.food = 0;
-      this.con.println("Starving!!!");
+      this.con.print(MSG_CORE.starving);
       for (const p of this.members) if (p.status !== "D") this.damagePlayer(p, 2);
     }
     for (const p of this.members) {
@@ -265,7 +266,7 @@ export class Game {
   async move(dir: Dir) {
     const [dx, dy] = DIRS[dir];
     if (this.onShip) { sail(this, dir); return; }
-    if (this.inBalloon) { this.con.println("Drift Only!"); return; }
+    if (this.inBalloon) { this.con.print(MSG_CORE.driftOnly); return; }
     if (this.onHorse) this.save.transport = dx < 0 ? T.HORSE_W : dx > 0 ? T.HORSE_E : this.save.transport;
     this.con.println(DIR_NAMES[dir]);
     const nx = this.px + dx, ny = this.py + dy;
@@ -276,11 +277,11 @@ export class Game {
     }
     const t = tileAt(this.map, nx, ny);
     const need = this.onHorse ? Walk.Horse : Walk.Foot;
-    if (!(tileFlags(t) & need) || this.npcAt(nx, ny)) { this.con.println("Blocked!"); this.endTurn(); return; }
+    if (!(tileFlags(t) & need) || this.npcAt(nx, ny)) { this.con.print(MSG_CORE.blocked); this.endTurn(); return; }
     if (this.map.kind === "world" && this.onFoot && this.objects.some((o) => o.x === (nx & 255) && o.y === (ny & 255) && o.tile >= 0x80)) {
-      this.con.println("Blocked!"); this.endTurn(); return;
+      this.con.print(MSG_CORE.blocked); this.endTurn(); return;
     }
-    if (rand(1000) < slowChance(t) * 1000) { this.con.println("Slow progress!"); this.endTurn(); return; }
+    if (rand(1000) < slowChance(t) * 1000) { this.con.print(MSG_CORE.slowProgress); this.endTurn(); return; }
     this.setPos(nx, ny);
     this.endTurn();
     checkMoongate(this);

@@ -27,6 +27,9 @@ export class Renderer {
   private readonly camera = new THREE.OrthographicCamera(0, SCREEN_W, 0, SCREEN_H, -10, 10);
   private readonly uiTexture: THREE.CanvasTexture;
   private readonly atlasData: Uint8Array<ArrayBuffer>;
+  /** Tile size of the pack in the atlas (16 for the original). */
+  private readonly tileSize: number;
+  private readonly scrollTiles: number[];
   readonly atlas: THREE.DataTexture;
   private readonly tileAttr: THREE.InstancedBufferAttribute;
   private readonly mapMesh: THREE.InstancedMesh;
@@ -44,10 +47,12 @@ export class Renderer {
     this.gl.setClearColor(0x000000);
     this.gl.autoClear = false;
 
-    // Tile atlas: 16x16 grid of 16x16 tiles.
-    this.atlasData = new Uint8Array(256 * 256 * 4);
-    assets.tiles.forEach((tile, t) => this.blitTile(t, tile.pixels));
-    this.atlas = new THREE.DataTexture(this.atlasData, 256, 256, THREE.RGBAFormat);
+    // Tile atlas: 16x16 grid of tiles of the pack's size.
+    const pack = assets.pack;
+    this.tileSize = pack.pack.tileSize;
+    this.atlasData = pack.rgba;
+    this.scrollTiles = pack.pack.animations?.filter((a) => a.kind === "scroll").flatMap((a) => a.tiles) ?? SCROLL_TILES;
+    this.atlas = new THREE.DataTexture(this.atlasData, pack.size, pack.size, THREE.RGBAFormat);
     this.atlas.magFilter = this.atlas.minFilter = THREE.NearestFilter;
     this.atlas.needsUpdate = true;
 
@@ -57,7 +62,7 @@ export class Renderer {
     this.tileAttr.setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute("aTile", this.tileAttr);
     const mat = new THREE.ShaderMaterial({
-      uniforms: { atlas: { value: this.atlas } },
+      uniforms: { atlas: { value: this.atlas }, tileSize: { value: this.tileSize } },
       vertexShader: /* glsl */ `
         attribute float aTile;
         varying vec2 vUv; varying float vTile;
@@ -66,13 +71,13 @@ export class Renderer {
           gl_Position = projectionMatrix * modelViewMatrix * instanceMatrix * vec4(position, 1.0);
         }`,
       fragmentShader: /* glsl */ `
-        uniform sampler2D atlas; varying vec2 vUv; varying float vTile;
+        uniform sampler2D atlas; uniform float tileSize; varying vec2 vUv; varying float vTile;
         void main() {
           if (vTile < 0.0) { gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return; }
           float t = floor(vTile + 0.5);
           vec2 cell = vec2(mod(t, 16.0), floor(t / 16.0));
-          vec2 px = clamp(floor(vUv * 16.0), 0.0, 15.0);
-          gl_FragColor = texture2D(atlas, (cell * 16.0 + px + 0.5) / 256.0);
+          vec2 px = clamp(floor(vUv * tileSize), 0.0, tileSize - 1.0);
+          gl_FragColor = texture2D(atlas, (cell * tileSize + px + 0.5) / (16.0 * tileSize));
         }`,
       side: THREE.DoubleSide,
     });
@@ -125,22 +130,23 @@ export class Renderer {
     window.addEventListener("resize", () => this.resize());
   }
 
-  private blitTile(t: number, pixels: Uint8Array) {
-    const ox = (t % 16) * 16, oy = Math.floor(t / 16) * 16;
-    for (let i = 0; i < 256; i++) {
-      const [r, g, b] = EGA_PALETTE[pixels[i]];
-      this.atlasData.set([r, g, b, 255], ((oy + (i >> 4)) * 256 + ox + (i & 15)) * 4);
-    }
-  }
-
-  /** Water, fields and lava scroll one pixel row per tick, as in the original. */
+  /**
+   * Water, fields and lava scroll down one original pixel row per tick (tileSize/16 rows of the pack).
+   * The original-size indexed tiles (used by the intro, the dungeon view and drawTileUI) scroll too.
+   */
   animateTiles() {
+    const n = this.tileSize, step = Math.max(1, n >> 4), stride = 16 * n * 4, row = n * 4;
+    for (const t of this.scrollTiles) {
+      const ox = (t % 16) * n, oy = (t >> 4) * n;
+      const cell = new Uint8Array(n * row);
+      for (let y = 0; y < n; y++) cell.set(this.atlasData.subarray((oy + y) * stride + ox * 4, (oy + y) * stride + ox * 4 + row), ((y + step) % n) * row);
+      for (let y = 0; y < n; y++) this.atlasData.set(cell.subarray(y * row, (y + 1) * row), (oy + y) * stride + ox * 4);
+    }
     for (const t of SCROLL_TILES) {
       const p = this.assets.tiles[t].pixels;
       const last = p.slice(240, 256);
       p.copyWithin(16, 0, 240);
       p.set(last, 0);
-      this.blitTile(t, p);
     }
     this.atlas.needsUpdate = true;
   }

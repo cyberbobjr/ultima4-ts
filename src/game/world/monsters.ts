@@ -8,6 +8,7 @@ import { tileAt } from "../maps";
 import { rand, rand8 } from "../rng";
 import { T, tileFlags, Walk } from "../tiles";
 import type { WorldObject } from "./objects";
+import { MSG_CORE } from "../texts/core";
 
 export function worldMonsterAt(g: Game, x: number, y: number): WorldObject | undefined {
   return g.objects.find((o) => o.tile >= 0x80 && o.x === (x & 255) && o.y === (y & 255));
@@ -57,7 +58,7 @@ export function moveWorldMonsters(g: Game) {
   }
   // bridge trolls (1000:9209)
   if (tileAt(g.world, g.px, g.py) === T.BRIDGE && rand(8) === 0) {
-    g.con.println("Bridge Trolls!");
+    g.con.print(MSG_CORE.bridgeTrolls);
     g.pendingAttack = { tile: 0xa4, x: g.px, y: g.py };
   }
 }
@@ -65,7 +66,7 @@ export function moveWorldMonsters(g: Game) {
 /** Overworld (or town) combat against one creature; the arena depends on the terrain (1000:7C65). */
 export async function worldFight(g: Game, m: WorldObject, context: CombatRequest["context"] = "world") {
   const info = creatureInfo(m.tile);
-  g.con.println(`\nAttacked by\n${info.name}`);
+  g.con.print(MSG_CORE.attackedBy + info.name + "\n");
   const partyTile = tileAt(g.map, g.px, g.py);
   const monsterTile = tileAt(g.map, m.x, m.y);
   const onShip = g.onShip;
@@ -89,13 +90,14 @@ export async function worldFight(g: Game, m: WorldObject, context: CombatRequest
 
 /** "All is Dark..." — Lord British resurrects the party (1000:0EB1). */
 export async function partyDeath(g: Game) {
-  const lines = ["\n\nAll is Dark...", "\nBut wait...", "Where am I?...", "Am I dead?...", "Afterlife?...", "You hear:", "I feel motion..."];
-  for (const l of lines) { g.con.println(l); await new Promise((r) => setTimeout(r, 1200)); }
+  const M = MSG_CORE;
+  const lines = [M.allIsDark, M.butWait, M.whereAmI, M.amIDead, M.afterlife, M.youHear, M.feelMotion];
+  for (const l of lines) { g.con.print(l); await new Promise((r) => setTimeout(r, 1200)); }
   for (const p of g.members) { p.status = "G"; p.hp = p.hpMax; }
   g.map = g.world;
   g.save.location = 0;
   g.save.transport = T.AVATAR;
   g.objects = [];
   g.setPos(LOCATIONS[1].x, LOCATIONS[1].y + 1);
-  g.con.println("\nLord British says: I have pulled thy spirit and some possessions from the void.  Be more careful in the future!");
+  g.con.print(MSG_CORE.lordBritishRevives);
 }

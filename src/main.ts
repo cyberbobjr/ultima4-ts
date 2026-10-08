@@ -8,21 +8,19 @@ import { installItems } from "./game/items";
 import { setSeed } from "./game/rng";
 import { advanceClock, useManualClock } from "./game/clock";
 import { assets as store } from "./assets/store";
-import { loadGameLang, setUiLang } from "./i18n/i18n";
+import { loadGameLang, setUiLang, t } from "./i18n/i18n";
 import { MODERN_FONT, type FontMode } from "./render/renderer";
 import "./data/all-texts";
+import { MSG_CORE } from "./game/texts/core";
 import { loadConfig } from "./config/config";
 
 async function main() {
   const canvas = document.getElementById("screen") as HTMLCanvasElement;
-  if (!(await store.manifest())) throw new Error(
-    "The game resources have not been extracted yet.\n\n" +
-    "Run once, from the project folder:\n  npm run extract -- --game-dir \"<your Ultima IV install>\"\n\n" +
-    "(default install: C:\\Program Files\\GOG Galaxy\\Games\\Ultima 4)");
   const cfg = await loadConfig();
   setUiLang(cfg.lang.ui);
+  if (!(await store.manifest())) throw new Error(t("app.notExtracted", { dir: "C:\\Program Files\\GOG Galaxy\\Games\\Ultima 4" }));
   await loadGameLang(store, cfg.lang.game);
-  const assets = await loadAssets();
+  const assets = await loadAssets(new URLSearchParams(location.search).get("pack") ?? cfg.tiles.pack);
   const renderer = new Renderer(canvas, assets);
   // "auto": the original font for English with the original tiles, the modern one otherwise (accents, HD)
   const font: FontMode = cfg.display.font !== "auto" ? cfg.display.font
@@ -59,7 +57,7 @@ async function main() {
   const save = import.meta.env.DEV && location.search.includes("skipintro")
     ? (await store.originalSave() ?? await store.newParty())
     : await runIntro(game);
-  if (save.members === 0) { save.members = 1; save.players[0].name ||= "Avatar"; }
+  if (save.members === 0) { save.members = 1; save.players[0].name ||= MSG_CORE.defaultName; }
   await game.start(save);
 }
 

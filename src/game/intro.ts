@@ -8,6 +8,7 @@ import { NewGame } from "../intro/newgame";
 import { Keys, Screen } from "../intro/screen";
 import { Title } from "../intro/title";
 import type { Game } from "./game";
+import { MSG_INTRO } from "./texts/intro";
 
 /** Returns the save to play: a continued game or a freshly created character. */
 export async function runIntro(g: Game): Promise<SaveGame> {
@@ -26,7 +27,7 @@ export async function runIntro(g: Game): Promise<SaveGame> {
         const own = await readSave("PARTY.SAV");
         const save = own ? decodeSave(own) : await assets.originalSave();
         if (save && save.members > 0) return save;
-        await title.notice(["No game has been saved yet.", "", "Initiate a new game first."]);  // not in TITLE.EXE
+        await title.notice([...MSG_INTRO.noSave]);  // not in TITLE.EXE
         mode = "menu";
         continue;
       }

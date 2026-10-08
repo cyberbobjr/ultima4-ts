@@ -6,3 +6,4 @@ src-tauri/gen/
 test-output/
 assets/original/
 assets/packs/*-derived/
+assets/i18n/

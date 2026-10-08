@@ -1,10 +1,13 @@
 // Runtime map contexts.
 import type { Dialogue } from "../formats/tlk";
 import type { LocationDef } from "./locations";
+import { lazyRecord } from "../data/text";
+import { MSG_FIGHT } from "./texts/fight";
 
 export type Dir = "N" | "S" | "E" | "W";
 export const DIRS: Record<Dir, [number, number]> = { N: [0, -1], S: [0, 1], E: [1, 0], W: [-1, 0] };
-export const DIR_NAMES: Record<Dir, string> = { N: "North", S: "South", E: "East", W: "West" };
+/** Direction names, DS:064A.. (1000:1317). */
+export const DIR_NAMES: Readonly<Record<Dir, string>> = lazyRecord(() => ({ N: MSG_FIGHT.north, S: MSG_FIGHT.south, E: MSG_FIGHT.east, W: MSG_FIGHT.west }));
 
 export interface Npc {
   index?: number;    // slot in the .ULT NPC table (0..31)

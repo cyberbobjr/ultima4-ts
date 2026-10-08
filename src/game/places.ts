@@ -8,6 +8,8 @@ import { rand } from "./rng";
 import { talkTo } from "./talk";
 import { isTalkOver, T, tileFlags, Walk } from "./tiles";
 import { runDungeon } from "./dungeon";
+import { MSG_CORE } from "./texts/core";
+import { TALK } from "./town/strings";
 
 /** Townsfolk movement at the end of a turn; hostile ones attack when adjacent. */
 export function moveNpcs(g: Game, town: TownMap) {
@@ -44,22 +46,23 @@ export function closeDoors(g: Game) {
 }
 
 export async function enter(g: Game) {
-  g.con.print("Enter ");
-  if (g.map.kind !== "world" || !g.onFoot && !g.onHorse) { g.con.println("what?"); return; }
+  g.con.print(MSG_CORE.enter);
+  if (g.map.kind !== "world" || !g.onFoot && !g.onHorse) { g.con.print(MSG_CORE.what); return; }
   // shrines (1000:4018: tile 0x1E under the party)
   const shrine = SHRINES.find((s) => s.x === g.px && s.y === g.py);
   if (shrine && tileAt(g.world, g.px, g.py) === T.SHRINE) {
-    g.con.println(`the Shrine of\n${VIRTUES[shrine.virtue]}!\n`);
-    if (!g.onFoot) { g.con.println("Only on foot!"); return; }
+    g.con.print(MSG_CORE.shrineOf + VIRTUES[shrine.virtue] + MSG_CORE.bang);
+    g.con.newline();
+    if (!g.onFoot) { g.con.print(MSG_CORE.onlyOnFoot); return; }
     await g.enterShrine(shrine.virtue);
     return;
   }
   const loc = locationAt(g.px, g.py);
-  if (!loc) { g.con.println("what?"); return; }
+  if (!loc) { g.con.print(MSG_CORE.what); return; }
   const t = tileAt(g.world, g.px, g.py);
-  const kindName = t === T.RUINS ? "ruin!" : loc.kind === LocKind.Castle ? "castle!" : loc.kind === LocKind.Village ? "village!" : loc.kind === LocKind.Dungeon ? "dungeon!" : "towne!";
-  g.con.println(kindName);
-  g.con.println("");
+  const M = MSG_CORE;
+  // "ruin!\n\n", "castle!\n\n"... (DS:176C..)
+  g.con.print(t === T.RUINS ? M.enterRuin : loc.kind === LocKind.Castle ? M.enterCastle : loc.kind === LocKind.Village ? M.enterVillage : loc.kind === LocKind.Dungeon ? M.enterDungeon : M.enterTowne);
   g.con.println(loc.name);
   if (loc.kind === LocKind.Dungeon) {
     g.save.location = loc.id;
@@ -99,33 +102,33 @@ export async function leaveTown(g: Game) {
   g.map = g.world;
   g.save.location = 0;
   g.setPos(loc.x, loc.y);
-  g.con.println("Leaving...");
+  g.con.print(MSG_CORE.leaving);
 }
 
 export async function klimb(g: Game) {
-  g.con.print("Klimb ");
+  g.con.print(MSG_CORE.klimb);
   if (g.map.kind === "town" && tileAt(g.map, g.px, g.py) === T.LADDER_UP && g.map.loc.map2) {
-    g.con.println("to second floor!");
+    g.con.print(MSG_CORE.toSecondFloor);
     await enterTown(g, g.map.loc, 1, [g.px, g.py]);
     return;
   }
-  if (g.inBalloon) { g.con.println("altitude"); return; }
-  g.con.println("\nWhat?");
+  if (g.inBalloon) { g.con.print(MSG_CORE.altitude); return; }
+  g.con.newline(); g.con.print(MSG_CORE.what);
 }
 
 export async function descend(g: Game) {
-  g.con.print("Descend ");
+  g.con.print(MSG_CORE.descend);
   if (g.map.kind === "town" && tileAt(g.map, g.px, g.py) === T.LADDER_DOWN && g.map.level === 1) {
-    g.con.println("to first floor!");
+    g.con.print(MSG_CORE.toFirstFloor);
     await enterTown(g, g.map.loc, 0, [g.px, g.py]);
     return;
   }
-  g.con.println("\nWhat?");
+  g.con.newline(); g.con.print(MSG_CORE.what);
 }
 
 export async function talk(g: Game) {
-  g.con.print("Talk\n"); // DS:2D68, then "Dir: " (DS:2D6E)
-  const d = await g.askDir("Dir: ");
+  g.con.print(MSG_CORE.talk); // DS:2D68, then "Dir: " (DS:2D6E)
+  const d = await g.askDir(MSG_CORE.talkDir);
   if (!d) return;
   const [dx, dy] = DIRS[d];
   let npc = g.npcAt(g.px + dx, g.py + dy);
@@ -134,13 +137,13 @@ export async function talk(g: Game) {
     npc = g.npcAt(g.px + 2 * dx, g.py + 2 * dy);
     if (npc) counter = { x: g.px + dx, y: g.py + dy };
   }
-  if (!npc) { g.con.println("Funny, no\nresponse!"); g.endTurn(); return; }
+  if (!npc) { g.con.print(TALK.funny); g.endTurn(); return; }
   await talkTo(g, npc, counter);
   g.endTurn();
 }
 
 export async function open(g: Game) {
-  g.con.print("Open: ");
+  g.con.print(MSG_CORE.open);
   const d = await g.askDir("");
   if (!d) return;
   const [dx, dy] = DIRS[d];
@@ -148,22 +151,22 @@ export async function open(g: Game) {
   if (t === T.DOOR) {
     setTile(g.map, x, y, T.BRICK_FLOOR);
     g.openedDoors.push({ x, y, turns: 4 });
-    g.con.println("Opened!");
-  } else if (t === T.LOCKED_DOOR) g.con.println("Can't!");
-  else g.con.println("Not Here!");
+    g.con.print(MSG_CORE.opened);
+  } else if (t === T.LOCKED_DOOR) g.con.print(MSG_CORE.cant);
+  else g.con.print(MSG_CORE.notHere);
   g.endTurn();
 }
 
 export async function jimmy(g: Game) {
-  g.con.print("Jimmy lock! ");
-  const d = await g.askDir("Dir: ");
+  g.con.print(MSG_CORE.jimmy);
+  const d = await g.askDir(MSG_CORE.dir);
   if (!d) return;
   const [dx, dy] = DIRS[d];
   const x = g.px + dx, y = g.py + dy;
-  if (tileAt(g.map, x, y) !== T.LOCKED_DOOR) { g.con.println("Not Here!"); g.endTurn(); return; }
-  if (g.save.keys <= 0) { g.con.println("No keys left!"); g.endTurn(); return; }
+  if (tileAt(g.map, x, y) !== T.LOCKED_DOOR) { g.con.print(MSG_CORE.notHere); g.endTurn(); return; }
+  if (g.save.keys <= 0) { g.con.print(MSG_CORE.noKeysLeft); g.endTurn(); return; }
   g.save.keys--;
   setTile(g.map, x, y, T.DOOR);
-  g.con.println("Unlocked!");
+  g.con.print(MSG_CORE.unlocked);
   g.endTurn();
 }

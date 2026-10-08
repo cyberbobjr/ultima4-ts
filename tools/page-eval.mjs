@@ -12,6 +12,7 @@ await page.waitForFunction("window.__game && window.__game.map", { timeout: 1500
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 for (const s of process.argv.slice(2)) {
   if (s.startsWith("wait:")) await pause(+s.slice(5));
+  else if (s.startsWith("tick:")) await page.evaluate(`window.__tick(${+s.slice(5)})`);
   else if (s.startsWith("type:")) await page.keyboard.type(s.slice(5), { delay: 60 });
   else if (s.startsWith("eval:")) console.log(s.slice(5, 60), "=>", JSON.stringify(await page.evaluate(s.slice(5))));
   else if (s.startsWith("shot:")) await (await page.$("canvas")).screenshot({ path: s.slice(5) });

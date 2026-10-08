@@ -17,6 +17,8 @@ import {
   ABYSS, ABYSS_ITEMS, ALTAR_EXITS, ALTAR_NAMES, DUNGEON_ARENAS, FIRST_DUNGEON, MONSTER_UPGRADE, NO_CHEST_MONSTERS,
   ORB_DAMAGE, ORB_DEX, ORB_INT, ORB_STAT_CAP, ORB_STR, PEER_GLYPHS, STATIC_MONSTERS, STONE_NAMES, monsterIndex,
 } from "../dungeon/tables";
+import { fmt } from "../data/text";
+import { MSG_FIGHT as M } from "./texts/fight";
 
 /** Arena passed to combat for a dungeon room: the 11x11 room plus what combat needs to know about it. */
 export interface DungeonArena extends CombatMap {
@@ -29,7 +31,8 @@ export interface DungeonArena extends CombatMap {
 }
 
 
-const DIR_LABELS = [" West", "North", " East", "South"].map((s) => s.padStart(6)); // DS:1632.. (" North", "  West")
+/** Facing labels by orientation (0 W, 1 N, 2 E, 3 S), DS:1632.. (" North", "  West"). */
+const dirLabel = (d: number) => [M.west6, M.north6, M.east6, M.south6][d].padStart(6);
 const SURFACE = 0xffff;
 const HYTHLOTH = 23;
 /** Same input wait as the overworld loop (FUN_1000_16cd(0x19,1)). */
@@ -100,9 +103,9 @@ class DungeonRun {
     const r = this.g.r;
     this.view.frame(performance.now());
     r.fillRect(11 * 8, 0, 16, 8, 0);
-    r.drawText(`L${this.level + 1}`, 11, 0);
+    r.drawText(fmt(M.level, { n: this.level + 1 }), 11, 0);
     r.fillRect(7 * 8, 23 * 8, 10 * 8, 8, 0);
-    r.drawText(`DIR:${DIR_LABELS[this.dir]}`, 7, 23);
+    r.drawText(M.dirLabel + dirLabel(this.dir), 7, 23);
     if (this.peer) {
       r.fillRect(8, 8, 176, 176, 0);
       for (let row = 1; row <= 22; row++)
@@ -140,12 +143,12 @@ class DungeonRun {
       this.refresh();
       if (!this.members.some((p) => p.status !== "D")) {
         // TODO: party death (1000:0EB1) belongs to the main game.
-        this.con.println("\nAll is lost!");
+        this.con.print(M.allLost);
         await sleep(2000);
         return;
       }
       if (!this.members.some((p) => p.status === "G" || p.status === "P")) {
-        this.con.println("Zzzzz");
+        this.con.print(M.zzz);
         await sleep(500);
         await this.endTurn();
         continue;
@@ -164,11 +167,11 @@ class DungeonRun {
     switch (key) {
       case "ArrowUp": this.advance(); return true;
       case "ArrowDown": this.retreat(); return true;
-      case "ArrowLeft": this.con.println("Turn Left"); this.turn(-1); return false;
-      case "ArrowRight": this.con.println("Turn Right"); this.turn(1); return false;
+      case "ArrowLeft": this.con.print(M.turnLeft); this.turn(-1); return false;
+      case "ArrowRight": this.con.print(M.turnRight); this.turn(1); return false;
     }
     switch (key.toLowerCase()) {
-      case " ": this.con.println("Pass"); return true;
+      case " ": this.con.print(M.pass); return true;
       case "k": this.klimb(); return true;
       case "d": this.descend(); return true;
       case "g": await this.getChest(); return true;
@@ -176,10 +179,10 @@ class DungeonRun {
       case "i": this.ignite(); return true;
       case "p": await this.peerGem(); return true;
       case "a": case "b": case "e": case "f": case "j": case "l": case "o": case "t": case "x": case "y":
-        this.con.println("Not Here!"); return true;
+        this.con.print(M.notHere); return true;
       case "h": case "q": case "v":
         // TODO: hole up (1000:8AB0) and quit&save (DNGMAP.SAV) underground.
-        this.con.println("Not Here!"); return false;
+        this.con.print(M.notHere); return false;
     }
     // C)ast, M)ix, U)se, N)ew order, R)eady, W)ear, Z)tats: registered commands
     const cmd = this.g.commands.get(key, "dungeon");
@@ -188,7 +191,7 @@ class DungeonRun {
       if (cmd.key === "c" || cmd.key === "u") this.refresh(false);
       return true;
     }
-    this.con.println("Bad command");
+    this.con.print(M.dngBadCommand);
     return false;
   }
 
@@ -202,14 +205,14 @@ class DungeonRun {
   }
 
   private advance() { // 1000:891E
-    this.con.println("Advance");
-    if (!this.passable(true, this.ahead(1))) { this.con.println("Blocked!"); return; }
+    this.con.print(M.advance);
+    if (!this.passable(true, this.ahead(1))) { this.con.print(M.blocked); return; }
     this.step(this.dir, 1);
   }
 
   private retreat() { // 1000:895F
-    this.con.println("Retreat");
-    if (!this.passable(false, this.ahead(-1))) { this.con.println("Blocked!"); return; }
+    this.con.print(M.retreat);
+    if (!this.passable(false, this.ahead(-1))) { this.con.print(M.blocked); return; }
     this.step(this.dir, -1);
   }
 
@@ -225,22 +228,22 @@ class DungeonRun {
   }
 
   private klimb() { // 1000:89DB
-    this.con.print("Klimb ");
+    this.con.print(M.klimb);
     const t = this.here & 0xf0;
-    if (t !== 0x10 && t !== 0x30) { this.con.println("What?"); return; }
-    this.con.println("up!");
+    if (t !== 0x10 && t !== 0x30) { this.con.print(M.what); return; }
+    this.con.print(M.up);
     if (this.level === 0) { this.exitToSurface(); return; }
     this.s.dngLevel--;
-    this.con.println(`To level ${this.level + 1}`);
+    this.con.println(M.toLevel + (this.level + 1));
     this.refresh(false);
   }
 
   private descend() { // 1000:8A1F
-    this.con.print("Descend ");
+    this.con.print(M.descend);
     const t = this.here & 0xf0;
-    if (t !== 0x20 && t !== 0x30) { this.con.println("What?"); return; }
+    if (t !== 0x20 && t !== 0x30) { this.con.print(M.what); return; }
     this.s.dngLevel++;
-    this.con.println(`down to level ${this.level + 1}`);
+    this.con.println(M.downToLevel + (this.level + 1));
     this.refresh(false);
   }
 
@@ -262,8 +265,8 @@ class DungeonRun {
       else if (sub === 2) this.hazard();
       else if (sub === 3) this.sleepField();
     } else if (t === 0x80) {
-      if (c === 0x80) { this.con.print("\nWinds!\n"); this.s.balloonState = 0; return; }
-      this.con.print(c < 0x88 ? "\nFalling Rocks!\n" : "\nPit!\n");
+      if (c === 0x80) { this.con.print(M.winds); this.s.balloonState = 0; return; }
+      this.con.print(c < 0x88 ? M.fallingRocks : M.pit);
       this.hazard();
     }
   }
@@ -291,7 +294,7 @@ class DungeonRun {
     this.spawnMonsters();
     const s = this.s;
     if (s.balloonState > 0) s.balloonState--;
-    if (s.balloonState === 0) this.con.println("It's Dark!");
+    if (s.balloonState === 0) this.con.print(M.dark);
     this.refresh();
     if (!(await this.encounter()))
       while ((this.here & 0xf0) === 0xd0 && !this.done) await this.room();
@@ -396,7 +399,7 @@ class DungeonRun {
     let altar = -1;
     if (n === 15 && this.loc.id < ABYSS) {
       altar = s.x === 3 ? 1 : s.x < 3 ? 0 : 2;
-      this.con.print(`\nThe Altar Room of ${ALTAR_NAMES[altar]}\n`);
+      this.con.print(`${M.altarRoom}${ALTAR_NAMES[altar]}\n`);
     }
     // party start set by direction of travel (0 = came from the north, 1 east, 2 south, 3 west)
     const entry = ((this.dir - 1) ^ 2) & 3;
@@ -411,12 +414,12 @@ class DungeonRun {
     const res = await this.fight(arena, done.has(idx) ? [] : room.monsters.map((m) => ({ ...m })), entry);
     if (res === "lost") { this.refresh(false); return; }
     if (res === "won") done.add(idx);
-    this.con.println("Leave Room!");
+    this.con.print(M.leaveRoom);
     if (arena.exitDir !== null) s.orientation = arena.exitDir & 3;
     if (altar >= 0) {
       const id = ALTAR_EXITS[altar * 4 + ((this.dir - 1) & 3)];
       const loc = LOCATIONS[id];
-      this.con.println("into Dungeon");
+      this.con.print(M.intoDungeon);
       this.con.println(loc.name);
       s.location = id;
       s.dngX = loc.x; s.dngY = loc.y;
@@ -435,18 +438,18 @@ class DungeonRun {
   }
 
   private async getChest() { // 1000:72EC / 722F
-    this.con.println("Get Chest!");
-    const i = await this.askPlayer("Who opens?");
+    this.con.print(M.getChest);
+    const i = await this.askPlayer(M.whoOpens);
     if (i < 0) return;
     const p = this.members[i];
-    if (!canAct(p)) { this.con.println("Disabled!"); return; }
-    if (this.here !== 0x40) { this.con.println("Not Here!"); return; }
+    if (!canAct(p)) { this.con.print(M.disabled); return; }
+    if (this.here !== 0x40) { this.con.print(M.notHere); return; }
     this.setCell(this.s.x, this.s.y, 0);
     this.chestTrap(p);
     // 1000:70F1
     const gold = (rnd() % 80) + (rnd() & 7) + 10;
-    this.con.println("The Chest Holds:");
-    this.con.println(`${gold} Gold`);
+    this.con.print(M.chestHolds);
+    this.con.print(gold + M.gold);
     this.s.gold = Math.min(9999, this.s.gold + gold);
     this.refresh(false);
   }
@@ -456,8 +459,8 @@ class DungeonRun {
     const r1 = rnd();
     if (r1 & 1) return;
     const type = r1 & 3 & rnd();
-    this.con.println(`${["Acid", "Sleep", "Poison", "Bomb"][type]} Trap!`);
-    if (rnd() % 100 <= p.dex + 25) { this.con.println("Evaded!"); return; }
+    this.con.print([M.trapAcid, M.trapSleep, M.trapPoison, M.trapBomb][type] + M.trap);
+    if (rnd() % 100 <= p.dex + 25) { this.con.print(M.evaded); return; }
     if (type === 0) this.g.damage(p, rnd() % 30);
     else if (type === 1) p.status = "S";
     else if (type === 2) p.status = "P";
@@ -465,59 +468,59 @@ class DungeonRun {
   }
 
   private ignite() { // 1000:7525
-    this.con.println("Ignite Torch!");
-    if (this.s.torches === 0) { this.con.println("None left!"); return; }
+    this.con.print(M.ignite);
+    if (this.s.torches === 0) { this.con.print(M.noneLeft); return; }
     this.s.torches--;
     this.s.balloonState += 100;
     this.refresh(false);
   }
 
   private async search() { // 1000:B9B2
-    this.con.println("Search...");
+    this.con.print(M.search);
     const t = this.here & 0xf0;
     if (t === 0x70) await this.orb();
     else if (t === 0x90) await this.fountain();
     else if (t === 0xb0) await this.altarStone();
-    else this.con.print("\nYou find Nothing!\n");
+    else this.con.print(M.findNothing);
   }
 
   private async orb() { // 1000:B795
-    this.con.print("\nYou find a Magical Ball...\n");
-    const i = await this.askPlayer("Who touches?");
+    this.con.print(M.orb);
+    const i = await this.askPlayer(M.whoTouches);
     if (i < 0) return;
     const p = this.members[i];
-    if (!canAct(p)) { this.con.print("\nDisabled!\n"); return; }
+    if (!canAct(p)) { this.con.print(M.disabledNl); return; }
     const d = this.loc.id - FIRST_DUNGEON;
     this.setCell(this.s.x, this.s.y, 0);
     this.g.damage(p, ORB_DAMAGE[d] * 100);
-    const raise = (k: "str" | "dex" | "int", label: string) => { p[k] = Math.min(ORB_STAT_CAP, p[k] + 5); this.con.println(`${label} + 5`); };
-    if (ORB_STR[d]) raise("str", "Strength");
-    if (ORB_DEX[d]) raise("dex", "Dexterity");
-    if (ORB_INT[d]) raise("int", "Intelligence");
+    const raise = (k: "str" | "dex" | "int", msg: string) => { p[k] = Math.min(ORB_STAT_CAP, p[k] + 5); this.con.print(msg); };
+    if (ORB_STR[d]) raise("str", M.strength);
+    if (ORB_DEX[d]) raise("dex", M.dexterity);
+    if (ORB_INT[d]) raise("int", M.intelligence);
     this.refresh(false);
   }
 
   private async fountain() { // 1000:B863
-    this.con.println("You find a Fountain.");
-    const i = await this.askPlayer("Who drinks?");
+    this.con.print(M.fountain);
+    const i = await this.askPlayer(M.whoDrinks);
     if (i < 0) return;
     const p = this.members[i];
-    if (!canAct(p)) { this.con.print("\nDisabled!\n"); return; }
+    if (!canAct(p)) { this.con.print(M.disabledNl2); return; }
     switch (this.here & 0xf) {
-      case 1: if (p.hp !== p.hpMax) { this.con.print("\nAhh-Refreshing!\n"); p.hp = p.hpMax; return; } break;
-      case 2: this.con.print("\nBleck--Nasty!\n"); this.g.damage(p, 100); return;
-      case 3: if (p.status === "P") { p.status = "G"; this.con.print("\nHmm--Delicious!\n"); return; } break;
-      case 4: if (p.status !== "P") { p.status = "P"; this.con.print("\nArgh-Choke-Gasp!\n"); this.g.damage(p, 100); return; } break;
+      case 1: if (p.hp !== p.hpMax) { this.con.print(M.refreshing); p.hp = p.hpMax; return; } break;
+      case 2: this.con.print(M.nasty); this.g.damage(p, 100); return;
+      case 3: if (p.status === "P") { p.status = "G"; this.con.print(M.delicious); return; } break;
+      case 4: if (p.status !== "P") { p.status = "P"; this.con.print(M.choke); this.g.damage(p, 100); return; } break;
     }
-    this.con.print("\nHmmm--No Effect!\n");
+    this.con.print(M.noEffect);
   }
 
   /** 1000:B93F: the dungeon's stone lies on its altar cell; +5 Honor and 200 XP to the Avatar. */
   private async altarStone() {
     const id = this.loc.id, bit = 1 << (id - FIRST_DUNGEON);
-    if (id === HYTHLOTH || id === ABYSS || (this.s.stones & bit)) { this.con.print("\nYou find Nothing!\n"); return; }
+    if (id === HYTHLOTH || id === ABYSS || (this.s.stones & bit)) { this.con.print(M.findNothing); return; }
     this.s.stones |= bit;
-    this.con.print(`\nYou find the ${STONE_NAMES[id - FIRST_DUNGEON]} stone!\n`);
+    this.con.print(M.findThe + STONE_NAMES[id - FIRST_DUNGEON] + M.stone);
     this.g.karmaInc(5, 5); // 1000:09F8 karma_inc(5, Honor)
     const av = this.s.players[0];
     av.xp = Math.min(9999, av.xp + 200);
@@ -526,9 +529,9 @@ class DungeonRun {
   /** 1000:C41D; `useGem` = false for the View spell. */
   private async peerGem(useGem = true) {
     if (useGem) {
-      this.con.print("Peer at ");
-      if (this.s.gems === 0) { this.con.println("What?"); return; }
-      this.con.println("a Gem!");
+      this.con.print(M.peerAt);
+      if (this.s.gems === 0) { this.con.print(M.what); return; }
+      this.con.print(M.aGem);
       this.s.gems--;
     }
     this.peer = this.peerMap();
@@ -564,8 +567,8 @@ class DungeonRun {
 
 export async function runDungeon(g: Game, loc: LocationDef): Promise<void> {
   const s = g.save;
-  if (!g.onFoot) { g.con.println("Only on foot!"); return; } // 1000:3F03
-  if (loc.id === ABYSS && (s.items & ABYSS_ITEMS) !== ABYSS_ITEMS) { g.con.println("Can't!"); return; } // 1000:3FB9
+  if (!g.onFoot) { g.con.print(M.onlyOnFoot); return; } // 1000:3F03
+  if (loc.id === ABYSS && (s.items & ABYSS_ITEMS) !== ABYSS_ITEMS) { g.con.print(M.cant); return; } // 1000:3FB9
   const run = new DungeonRun(g);
   await run.load(loc);
   if (import.meta.env.DEV) (window as unknown as { __dungeon: DungeonRun }).__dungeon = run; // for automated tests

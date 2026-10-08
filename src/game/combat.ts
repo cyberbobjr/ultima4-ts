@@ -7,6 +7,8 @@ import { ARMOURS, COMBAT_RULES, MONSTERS, NON_EVIL_TILES, PERSON_COMBAT, WALKABL
 import type { Game } from "./game";
 import { CLASS_TILES, T, animFrame } from "./tiles";
 import { DIR_NAMES, DIRS, type Dir } from "./maps";
+import { say } from "./prompts";
+import { MSG_FIGHT as M } from "./texts/fight";
 
 export interface CombatRequest {
   /** Arena: a decoded *.CON file or a dungeon room converted to the same shape. */
@@ -187,18 +189,18 @@ class Combat {
 
   private async playerTurn(m: Member) {
     const g = this.g;
-    g.con.print(`${m.p.name} with ${WEAPONS[m.p.weapon].name}:\n`);
+    g.con.print(`${m.p.name}${M.with}${WEAPONS[m.p.weapon].name}:\n`);
     for (;;) {
       const k = await g.input.next(15000);
-      if (!k) { g.con.println("Pass"); return; }
+      if (!k) { g.con.print(M.pass); return; }
       const key = k.key;
       const dir = (({ ArrowUp: "N", ArrowDown: "S", ArrowLeft: "W", ArrowRight: "E" }) as Record<string, Dir>)[key];
       if (dir) { await this.moveMember(m, dir); return; }
       switch (key.toLowerCase()) {
-        case " ": g.con.println("Pass"); return;
+        case " ": g.con.print(M.pass); return;
         case "a": await this.attack(m); return;
         case "c":
-          g.con.print("Cast Spell! ");
+          g.con.print(M.castSpell);
           await g.commands.get("c", "combat")!.run({ g, ctx: "combat", combat: this.api(m) });
           return;
         case "r": await g.readyWeapon(m.i); return;
@@ -217,7 +219,7 @@ class Combat {
           return;
         }
         case "z": await g.ztatsFor(m.i); continue;
-        default: g.con.println("Bad command!"); continue;
+        default: g.con.print(M.badCommand); continue;
       }
     }
   }
@@ -233,7 +235,7 @@ class Combat {
       const arena = this.req.arena as CombatMap & { exitDir?: number | null };
       if ("exitDir" in arena) arena.exitDir = { W: 0, N: 1, E: 2, S: 3 }[d];
       if (!this.monstersLeft) { m.present = false; return; }
-      g.con.println("Fleeing!");
+      g.con.print(M.fleeing);
       if (m.p.hp === m.p.hpMax && this.monsters.some((x) => x.alive && !isNonEvil(x.tile))) {
         g.karmaDec(2, 2); g.karmaDec(4, 2);
       }
@@ -241,23 +243,22 @@ class Combat {
       return;
     }
     const t = this.tileAt(nx, ny);
-    if (!WALKABLE.has(t) || this.occupied(nx, ny)) { g.con.println("Blocked!"); return; }
-    if (t === T.FIRE_FIELD && rand8() & 1) { g.con.println("Slow progress!"); return; }
+    if (!WALKABLE.has(t) || this.occupied(nx, ny)) { g.con.print(M.blocked); return; }
+    if (t === T.FIRE_FIELD && rand8() & 1) { g.con.print(M.slowProgress); return; }
     m.x = nx; m.y = ny;
     this.terrainEffect(m);
   }
 
   private terrainEffect(m: Member) {
     const t = this.tileAt(m.x, m.y);
-    if ((t === T.POISON_FIELD || t === T.SWAMP) && m.p.status === "G") { m.p.status = "P"; this.g.con.println("Poisoned!"); }
-    else if (t === T.FIRE_FIELD || t === T.LAVA) { this.g.damagePlayer(m.p, 16 + (rand8() % 32)); this.g.con.println("Burned!"); }
-    else if (t === T.SLEEP_FIELD && m.p.status === "G") { m.p.status = "S"; this.g.con.println("Slept!"); }
+    if ((t === T.POISON_FIELD || t === T.SWAMP) && m.p.status === "G") { m.p.status = "P"; this.g.con.print(M.poisoned); }
+    else if (t === T.FIRE_FIELD || t === T.LAVA) { this.g.damagePlayer(m.p, 16 + (rand8() % 32)); this.g.con.print(M.burned); }
+    else if (t === T.SLEEP_FIELD && m.p.status === "G") { m.p.status = "S"; this.g.con.print(M.slept); }
   }
 
   private async attack(m: Member) {
     const g = this.g;
-    g.con.print("Attack ");
-    const d = await g.askDir("Dir: ");
+    const d = await g.askDir(M.dir); // 1000:61E5
     if (!d) return;
     const w = m.p.weapon;
     const weapon = WEAPONS[w];
@@ -268,28 +269,28 @@ class Combat {
         const t = this.monsterAt(m.x + dx * k, m.y + dy * k);
         if (t) { await this.resolveHit(m, t); return; }
       }
-      g.con.println("Missed!");
+      g.con.print(M.missed);
       return;
     }
     const adj = this.monsterAt(m.x + dx, m.y + dy);
     if (!weapon.ranged && !(w === 2 && !adj)) {
-      if (!adj) { g.con.println("Missed!"); return; }
+      if (!adj) { g.con.print(M.missed); return; }
       await this.resolveHit(m, adj);
       return;
     }
     // ranged weapons; a dagger with no adjacent target is thrown and lost; flaming oil asks for a range
     let range: number = COMBAT_RULES.rangedWeaponRange;
     if (w === 2 || w === 9) {
-      if (g.save.weapons[w] <= 0 && w === 9) { g.con.println("None left!"); return; }
+      if (g.save.weapons[w] <= 0 && w === 9) { g.con.print(M.noneLeft); return; }
       if (w === 9) {
-        g.con.print("Range: ");
+        await say(g, M.range);
         const r = parseInt(await g.getKey(), 10);
         if (!(r >= 0 && r <= 9)) { g.con.println(""); return; }
         g.con.println(String(r));
         range = r;
       }
       if (g.save.weapons[w] > 0) g.save.weapons[w]--;
-      if (g.save.weapons[w] === 0) { m.p.weapon = 0; g.con.println("Last one!"); }
+      if (g.save.weapons[w] === 0) { m.p.weapon = 0; g.con.print(M.lastOne); }
     }
     const projectile = w === 14 ? T.MAGIC_FLASH : T.MISSILE;
     const hit = await this.shoot(m.x, m.y, d, range, projectile, false);
@@ -298,7 +299,7 @@ class Combat {
       if (this.tileAt(fx, fy) >= 0) this.tiles[fy * 11 + fx] = T.FIRE_FIELD;
     }
     const target = hit && this.monsterAt(hit.x, hit.y);
-    if (!target) { g.con.println("Missed!"); return; }
+    if (!target) { g.con.print(M.missed); return; }
     await this.resolveHit(m, target);
   }
 
@@ -308,7 +309,7 @@ class Combat {
     const w = m.p.weapon;
     const inAbyss = g.save.location === 24;
     const hit = !(inAbyss && w <= 10) && (m.p.dex >= 40 || rand8() <= m.p.dex + 128);
-    if (!hit) { g.con.println("Missed!"); return; }
+    if (!hit) { g.con.print(M.missed); return; }
     await this.flash(target.x, target.y);
     this.damageMonster(target, rand8() % Math.min(255, m.p.str + WEAPONS[w].damage), m);
   }
@@ -321,16 +322,17 @@ class Combat {
     if (target.hp <= 0) {
       target.alive = false;
       this.lastKill = { x: target.x, y: target.y };
-      g.con.println(`${name} Killed!`);
+      g.con.print(`${name} ${M.killed}`);
       if (by) {
-        g.con.println(`Exp. ${target.info.xp}`);
+        g.con.println(M.exp + target.info.xp);
         by.p.xp = Math.min(COMBAT_RULES.xpCap, by.p.xp + target.info.xp);
       }
       return;
     }
     const b = target.info.baseHp;
-    const state = target.hp < 24 ? "Fleeing!" : target.hp < b / 4 ? "Critical!" : target.hp < b / 2 ? "Heavily Wounded!" : target.hp < (3 * b) / 4 ? "Lightly Wounded!" : "Barely Wounded!";
-    g.con.println(`${name}\n${state}`);
+    // 1000:5E58: "Heavily "/"Lightly "/"Barely " + "Wounded!\n"
+    const state = target.hp < 24 ? M.fleeing : target.hp < b / 4 ? M.critical : (target.hp < b / 2 ? M.heavily : target.hp < (3 * b) / 4 ? M.lightly : M.barely) + M.wounded;
+    g.con.print(`${name}\n${state}`);
   }
 
   // ------------------------------------------------------------ monster side
@@ -388,7 +390,7 @@ class Combat {
     if (has(mon.info, "stationary") && !(has(mon.info, "mimic") && this.mimicRevealed(mon)) && !has(mon.info, "castsSleep")) return;
     // sleep spell (Reaper, Balron)
     if (has(mon.info, "castsSleep") && g.spellEffect !== "N" && rand8() % 4 === 0) {
-      g.con.println("Sleep!");
+      g.con.print(M.sleep);
       for (const m of this.party) if (m.present && m.p.status === "G" && rand8() & 1) m.p.status = "S";
       return;
     }
@@ -406,7 +408,7 @@ class Combat {
       const nx = mon.x + (Math.abs(dx) >= Math.abs(dy) ? sx : 0), ny = mon.y + (Math.abs(dx) >= Math.abs(dy) ? 0 : sy || 1);
       if (nx < 0 || ny < 0 || nx > 10 || ny > 10) {
         mon.alive = false;
-        g.con.println(`${mon.info.name} Flees!`);
+        g.con.print(mon.info.name + M.flees);
         if (isNonEvil(mon.tile)) { g.karmaInc(1, 1); g.karmaInc(3, 1); }
         return;
       }
@@ -414,8 +416,8 @@ class Combat {
       return;
     }
     if (adjacent) {
-      if (has(mon.info, "stealsFood")) { g.save.food = Math.max(0, g.save.food - 2500); g.con.println("Food stolen!"); }
-      if (has(mon.info, "stealsGold") && rand8() % 4 === 0) { g.save.gold = Math.max(0, g.save.gold - (rand8() & 0x3f)); g.con.println("Gold stolen!"); }
+      if (has(mon.info, "stealsFood")) { g.save.food = Math.max(0, g.save.food - 2500); g.con.print(M.foodStolen); }
+      if (has(mon.info, "stealsGold") && rand8() % 4 === 0) { g.save.gold = Math.max(0, g.save.gold - (rand8() & 0x3f)); g.con.print(M.goldStolen); }
       await this.monsterMelee(mon, target);
       return;
     }
@@ -432,9 +434,9 @@ class Combat {
   /** 1000:9BE5 melee, 1000:96B9 damage */
   private async monsterMelee(mon: Monster, m: Member) {
     const g = this.g;
-    g.con.println(`\nAttacked by\n${mon.info.name}`);
+    g.con.println(M.attackedBy + mon.info.name); // 1000:5333
     const prot = g.spellEffect === "P" && rand8() & 1;
-    if (prot || rand8() <= ARMOURS[m.p.armour].defense) { g.con.println("Missed!"); return; }
+    if (prot || rand8() <= ARMOURS[m.p.armour].defense) { g.con.print(M.missed); return; }
     await this.flash(m.x, m.y);
     const r = rand8() % Math.max(1, mon.info.maxDamageRoll);
     this.hurtMember(m, (r >> 4) * 10 + (r % 10));
@@ -444,10 +446,10 @@ class Combat {
     const g = this.g;
     g.damagePlayer(m.p, dmg);
     if (m.p.status === "D") {
-      g.con.println(`${m.p.name} Killed!`);
+      g.con.print(m.p.name + M.isKilled);
       g.karmaInc(4, 1);
       m.present = false;
-    } else g.con.println(`${m.p.name}\nHit!`);
+    } else g.con.print(`${m.p.name}\n${M.hit}`);
   }
 
   /** 1000:978C */
@@ -470,15 +472,15 @@ class Combat {
     const dmg = () => { const r = rand8() % Math.max(1, mon.info.maxDamageRoll); return (r >> 4) * 10 + (r % 10); };
     switch (tile) {
       case T.POISON_FIELD:
-        if (m.p.status === "G" && rand8() & 1) { m.p.status = "P"; g.con.println(`${m.p.name}\nPoisoned!`); } else g.con.println("Failed.");
+        if (m.p.status === "G" && rand8() & 1) { m.p.status = "P"; g.con.print(`${m.p.name}\n${M.poisoned}`); } else g.con.print(M.failed);
         break;
       case T.SLEEP_FIELD:
-        if (m.p.status === "G" && rand8() & 1) { m.p.status = "S"; g.con.println(`${m.p.name}\nSlept!`); } else g.con.println("Failed.");
+        if (m.p.status === "G" && rand8() & 1) { m.p.status = "S"; g.con.print(`${m.p.name}\n${M.slept}`); } else g.con.print(M.failed);
         break;
-      case T.ENERGY_FIELD: g.con.println("Electrified!"); this.hurtMember(m, dmg()); break;
-      case T.FIRE_FIELD: g.con.println("Fiery Hit!"); this.hurtMember(m, dmg()); break;
-      case T.LAVA: g.con.println("Lava Hit!"); this.hurtMember(m, dmg()); break;
-      case T.MAGIC_FLASH: g.con.println("Magical Hit!"); this.hurtMember(m, dmg()); break;
+      case T.ENERGY_FIELD: g.con.print(M.electrified); this.hurtMember(m, dmg()); break;
+      case T.FIRE_FIELD: g.con.print(M.fieryHit); this.hurtMember(m, dmg()); break;
+      case T.LAVA: g.con.print(M.lavaHit); this.hurtMember(m, dmg()); break;
+      case T.MAGIC_FLASH: g.con.print(M.magicalHit); this.hurtMember(m, dmg()); break;
       default: this.hurtMember(m, dmg());
     }
   }
@@ -492,12 +494,12 @@ class Combat {
     if (!this.partyLeft) {
       if (this.party.every((m) => m.p.status === "D")) return { outcome: "lost", chest: false };
       if (this.monstersLeft) {
-        if (evil) { g.con.println("Battle is lost!"); g.karmaDec(2, 2); }
+        if (evil) { g.con.print(M.battleLost); g.karmaDec(2, 2); }
         else { g.karmaInc(1, 2); g.karmaInc(3, 2); }
         return { outcome: "fled", chest: false };
       }
     }
-    g.con.println("\nVictory!");
+    g.con.print(M.victory);
     if (evil) g.karmaInc(2, rand8() & 1);
     const first = creatureInfo(this.req.monsters[0]?.tile ?? 0);
     return { outcome: "won", lastKill: this.lastKill, chest: !first.def?.flags.includes("noChest") };

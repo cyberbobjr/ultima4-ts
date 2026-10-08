@@ -5,51 +5,52 @@ import type { Game } from "./game";
 import { VIRTUES } from "./locations";
 import { addDrawHook, blankView, loadPicture, PixelLayer, showTiles } from "./endgame/ui";
 import { askKey, flushKeys, sameText, ticks } from "./prompts";
+import { MSG_MAGIC as M } from "./texts/magic";
 
 const SPIRITUALITY = 6;
 
 async function meditate(g: Game, virtue: number) {
   const s = g.save, say = (t: string) => g.con.print(t);
   if (!(s.runes & (1 << virtue))) {
-    say("\nThou dost not bear the rune of entry!  A strange force keeps you out!\n");
+    say(M.noRune);
     return;
   }
   // SHRINE.CON: the first 121 bytes are the 11x11 view shown while in the shrine (mode 7)
   const restoreView = showTiles(g, await assets.shrineMap());
   try {
-    say("\nYou enter the ancient shrine and sit before the altar...\nUpon what virtue dost thou meditate?\n");
+    say(M.enterShrine);
     const subject = await g.getLine(15);
-    say("\nFor how many\n");
-    const k = await askKey(g, "Cycles (0-3)?", "0", "3");
+    say(M.howMany);
+    const k = await askKey(g, M.cycles, "0", "3");
     if (k < 0) return;
     const cycles = k - 0x30;
     if (cycles === 0 || !sameText(subject, VIRTUES[virtue], 16)) {
-      say("\nThou art unable to focus thy thoughts on this subject!\n");
+      say(M.unableFocus);
       return;
     }
     // one meditation (or Hawkwind visit) per 100 moves, DS:932E
     const period = Math.floor(s.moves / MEDITATION.cooldownMoves) & 0xffff;
-    if (period === s.lastMeditation) { say("\nThy mind is still weary from thy last Meditation!\n"); return; }
+    if (period === s.lastMeditation) { say(M.mindWeary); return; }
     s.lastMeditation = period;
-    say("Begin Meditation\n");
+    say(M.beginMeditation);
     for (let c = 0; c < cycles; c++) {
       for (let d = 0; d < 16; d++) { await ticks(1); say("."); }
       flushKeys(g);
-      say("\nMantra: ");
+      say(M.mantra);
       const mantra = await g.getLine(15);
       if (!sameText(mantra, MANTRAS[virtue], 16)) {
-        say("\nThou art not able to focus thy thoughts with that Mantra!\n");
+        say(M.badMantra);
         g.karmaDec(SPIRITUALITY, 3);
         return;
       }
     }
     if (cycles === MEDITATION.maxCycles && s.karma[virtue] === MEDITATION.elevationKarma) {
-      say(`\nThou hast achieved partial Avatarhood in the Virtue of\n${VIRTUES[virtue]}`);
+      say(M.partialAvatarhood + VIRTUES[virtue]);
       g.con.println("");
       s.karma[virtue] = 0;
       flushKeys(g);
       await g.getKey();
-      say("\n\nThou art granted a vision!\n");
+      say(M.grantedVision);
       // 1000:E6DF: blank viewport, rune picture OR-ed over it, until a key is pressed
       const layer = new PixelLayer();
       layer.or(await loadPicture(SHRINES[virtue].visionPic.toUpperCase() + ".EGA"));
@@ -63,7 +64,7 @@ async function meditate(g: Game, virtue: number) {
         restoreBlank();
       }
     } else {
-      say("\nThy thoughts are pure. Thou art granted a vision!\n");
+      say(M.thoughtsPure);
       g.karmaInc(SPIRITUALITY, MEDITATION.spiritualityPerCycle * cycles);
       flushKeys(g);
       await g.getKey();

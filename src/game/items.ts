@@ -3,7 +3,8 @@
 // search 1000:913A (table DS:2920) and finds 1000:8D4B..90C5, peer 1000:C41D/C403/B9EF, new order 1000:7034,
 // fire 1000:73C9, ignite 1000:7525.
 import { assets } from "../assets/store";
-import { ALTAR_STONE_MASKS, STONE_COLORS } from "../data/tables";
+import { ABYSS_ALTARS, ALTAR_STONE_MASKS, STONE_COLORS } from "../data/tables";
+import { MSG_MAGIC as M } from "./texts/magic";
 import { rand8 } from "./combat";
 import type { Game } from "./game";
 import { LOCATIONS, VIRTUES } from "./locations";
@@ -24,7 +25,7 @@ let useContext: { pos: UseEnv["pos"] | null; altar: number; room: boolean; killA
 export const HORN_EFFECT = "\u0001";
 
 const say = (g: Game, s: string) => g.con.print(s);
-const NONE_OWNED = "None owned!\n", NO_EFFECT = "Hmm...No effect!\n", NOTHING = "Nothing Here!\n";
+// None owned! (DS:0100), Hmm...No effect! (DS:00EE), Nothing Here! (DS:27A6): M.noneOwned, M.noEffect, M.nothingHere
 
 // ------------------------------------------------------------------ peer at a gem (1000:B9EF)
 
@@ -109,60 +110,59 @@ export async function peerAtMap(g: Game) {
 async function altarStones(g: Game) {
   const s = g.save, ctx = useContext;
   if (ctx.pos && ctx.pos.x === 5 && ctx.pos.y === 5 && ctx.altar >= 0) {
-    say(g, "\nThere are holes for 4 stones. What colors:\n");
+    say(g, M.holes);
     let used = 0;
     for (let i = 1; i < 5; i++) {
       say(g, String.fromCharCode(0x40 + i) + ":");
       const name = await g.getLine(11);
       const idx = STONE_COLORS.findIndex((c) => sameText(c, name, 12));
-      if (idx < 0 || !(s.stones & (1 << idx))) { if (name) say(g, NONE_OWNED); return; }
-      if (used & (1 << idx)) { say(g, "Already used!\n"); return; }
+      if (idx < 0 || !(s.stones & (1 << idx))) { if (name) say(g, M.noneOwned); return; }
+      if (used & (1 << idx)) { say(g, M.alreadyUsed); return; }
       used |= 1 << idx;
     }
     const bit = [0x80, 0x40, 0x20][ctx.altar];
     if (ALTAR_STONE_MASKS[ctx.altar] === used && !(s.items & bit)) {
       s.items |= bit;
-      say(g, "Thou doth find one third of the Three Part Key!\n");
+      say(g, M.keyThird);
       return;
     }
   }
-  say(g, NO_EFFECT);
+  say(g, M.noEffect);
 }
 
 /** Stones 1000:0311: altar rooms, or the altars of the Abyss (cell 0xB0 on each level). */
 async function useStone(g: Game) {
   const s = g.save, mode = gameMode(g);
-  if (s.stones === 0) { say(g, NONE_OWNED); return; }
+  if (s.stones === 0) { say(g, M.noneOwned); return; }
   const inRoom = mode === 4 && useContext.room;
-  if (!inRoom && mode !== 3) say(g, "No place to Use them!\n");
+  if (!inRoom && mode !== 3) say(g, M.noPlaceStones);
   if (mode !== 3) { await altarStones(g); return; }
   const h = g.dungeon, level = s.dngLevel;
   if (s.location === 24 && h.cell?.(s.x, s.y, level) === 0xb0) {
-    const QUESTION = ["Truth", "Love", "Courage", "Truth and Love", "Love and Courage", "Courage and Truth", "Truth, Love and Courage",
-      "\nA voice rings out:  What Virtue exists independently of Truth, Love and Courage"]; // DS:0284
-    if (level !== 7) say(g, "\nAs thou doth approach, a voice rings out: What virtue dost stem from ");
-    say(g, QUESTION[level] + "?\n\n");
+    // questions DS:0284 (ABYSS_ALTARS; the level 7 one starts with a line break, removed by the table)
+    if (level !== 7) say(g, M.abyssApproach);
+    say(g, (level === 7 ? "\n" : "") + ABYSS_ALTARS[level].prompt + M.abyssQuestionEnd);
     let answer = await g.getLine(13);
     if (sameText(answer, VIRTUES[level], 14)) {
-      say(g, "\nThe Voice says: Use thy Stone.\n\nColor:\n");
+      say(g, M.useThyStone);
       answer = await g.getLine(11);
       const idx = STONE_COLORS.findIndex((c) => sameText(answer, c, 12));
       if (idx >= 0) {
-        if (!(s.stones & (1 << idx))) { say(g, "\nYou have none!\n\n"); return; }
+        if (!(s.stones & (1 << idx))) { say(g, M.youHaveNone); return; }
         if (idx === level) {
           if (level === 7) { await runCodex(g); return; }
           h.setCell?.(s.x, s.y, level, 0x20); // the altar becomes a ladder down
           h.refresh?.();
-          say(g, "\nThe altar changes before thyne eyes!\n");
+          say(g, M.altarChanges);
           return;
         }
-        say(g, NO_EFFECT);
+        say(g, M.noEffect);
         return;
       }
     }
     if (!answer) return;
   }
-  say(g, NO_EFFECT);
+  say(g, M.noEffect);
 }
 
 const atAbyss = (g: Game) => g.save.location === 0 && g.px === 0xe9 && g.py === 0xe9;
@@ -170,14 +170,14 @@ const atAbyss = (g: Game) => g.save.location === 0 && g.px === 0xe9 && g.py === 
 /** Skull 1000:05CE */
 async function useSkull(g: Game) {
   const s = g.save;
-  if (!(s.items & 1)) { say(g, NONE_OWNED); return; }
+  if (!(s.items & 1)) { say(g, M.noneOwned); return; }
   if (atAbyss(g)) {
-    say(g, "\nYou cast the Skull of Mondain into the Abyss!\n");
+    say(g, M.skullCast);
     s.items |= 2;
     for (let v = 0; v < 8; v++) g.karmaInc(v, 10);
     for (let k = 0; k < 3; k++) await shake(g);
   } else {
-    say(g, "\nYou hold the evil Skull of Mondain the Wizard aloft....\n");
+    say(g, M.skullAloft);
     for (let k = 0; k < 3; k++) await shake(g);
     // every creature on the map dies except Lord British (monster slots 0..7 outdoors, all 32 slots in towns)
     const mode = gameMode(g);
@@ -197,47 +197,48 @@ async function useSkull(g: Game) {
 /** Bell 1000:0487, book 1000:04C0, candle 1000:0501 at the Abyss entrance (233,233), in that order. */
 async function useAbyssItem(g: Game, have: number, needs: number, sets: number, msg: string) {
   const s = g.save;
-  if (!(s.items & have)) { say(g, NONE_OWNED); return; }
+  if (!(s.items & have)) { say(g, M.noneOwned); return; }
   if (atAbyss(g) && (needs === 0 || s.items & needs)) {
     s.items |= sets;
     say(g, msg);
     if (sets === 0x400) await shake(g);
     return;
   }
-  say(g, NO_EFFECT);
+  say(g, M.noEffect);
 }
 
-const USE_TABLE: [string, (g: Game) => Promise<void> | void][] = [
-  ["stone", useStone], ["stones", useStone],
-  ["bell", (g) => useAbyssItem(g, 0x10, 0, 0x1000, "The Bell rings on and on!\n")],
-  ["book", (g) => useAbyssItem(g, 0x08, 0x1000, 0x800, "The words resonate with the ringing!\n")],
-  ["candle", (g) => useAbyssItem(g, 0x04, 0x800, 0x400, "As you light the Candle the Earth Trembles!\n")],
-  ["key", useKey], ["keys", useKey],
+/** Item names (DS:0434 {name, handler}) are read from the catalog: the typed name is compared with them. */
+const USE_TABLE: [() => string, (g: Game) => Promise<void> | void][] = [
+  [() => M.itemStone, useStone], [() => M.itemStones, useStone],
+  [() => M.itemBell, (g) => useAbyssItem(g, 0x10, 0, 0x1000, M.bellRings)],
+  [() => M.itemBook, (g) => useAbyssItem(g, 0x08, 0x1000, 0x800, M.wordsResonate)],
+  [() => M.itemCandle, (g) => useAbyssItem(g, 0x04, 0x800, 0x400, M.candleLit)],
+  [() => M.itemKey, useKey], [() => M.itemKeys, useKey],
   // Horn 1000:0553: overworld only
-  ["horn", (g) => {
-    if (!(g.save.items & 0x100)) { say(g, NONE_OWNED); return; }
-    if (g.save.location !== 0) { say(g, NO_EFFECT); return; }
-    say(g, "The Horn sounds an eerie tone!\n");
+  [() => M.itemHorn, (g) => {
+    if (!(g.save.items & 0x100)) { say(g, M.noneOwned); return; }
+    if (g.save.location !== 0) { say(g, M.noEffect); return; }
+    say(g, M.hornSounds);
     g.setSpellEffect(HORN_EFFECT, 10);
   }],
   // Wheel 1000:058C: overworld, on a ship with a full hull (50) -> 99
-  ["wheel", (g) => {
-    if (!(g.save.items & 0x200)) { say(g, NONE_OWNED); return; }
-    if (g.save.location !== 0 || !g.onShip || g.save.shipHull !== 50) { say(g, NO_EFFECT); return; }
-    say(g, "Once mounted, the Wheel glows with a blue light!\n");
+  [() => M.itemWheel, (g) => {
+    if (!(g.save.items & 0x200)) { say(g, M.noneOwned); return; }
+    if (g.save.location !== 0 || !g.onShip || g.save.shipHull !== 50) { say(g, M.noEffect); return; }
+    say(g, M.wheelGlows);
     g.save.shipHull = 99;
   }],
-  ["skull", useSkull],
+  [() => M.itemSkull, useSkull],
 ];
 
 /** Key 1000:044C */
-function useKey(g: Game) { say(g, g.save.items & 0xe0 ? "No place to Use them!\n" : NONE_OWNED); }
+function useKey(g: Game) { say(g, g.save.items & 0xe0 ? M.noPlaceKey : M.noneOwned); }
 
 async function useItem(g: Game) {
-  say(g, "Use which item:\n");
+  say(g, M.useWhich);
   const name = await g.getLine(11);
-  const entry = name ? USE_TABLE.find(([n]) => sameText(n, name, 12)) : undefined;
-  if (!entry) { say(g, "Not a Usable item!\n"); return; }
+  const entry = name ? USE_TABLE.find(([n]) => sameText(n(), name, 12)) : undefined;
+  if (!entry) { say(g, M.notUsable); return; }
   await entry[1](g);
 }
 
@@ -245,7 +246,7 @@ async function useItem(g: Game) {
 
 /** 1000:8D4B: every find gives Honor +5 and restarts the reagent timer (DS:932C = moves & 0xF0). */
 function found(g: Game) {
-  say(g, "You find...\n");
+  say(g, M.youFind);
   g.karmaInc(5, 5);
   g.save.lastReagent = g.save.moves & 0xf0;
 }
@@ -255,17 +256,17 @@ const newMoons = (g: Game) => g.save.trammelPhase === 0 && g.save.feluccaPhase =
 /** Reagents (1000:8D6D): +2..9, capped at 99. */
 function findReagent(g: Game, i: number, name: string) {
   const s = g.save;
-  if (!newMoons(g) || (s.moves & 0xf0) === s.lastReagent) { say(g, NOTHING); return; }
+  if (!newMoons(g) || (s.moves & 0xf0) === s.lastReagent) { say(g, M.nothingHere); return; }
   found(g);
   say(g, name);
   s.reagents[i] += (rand8() & 7) + 2;
-  if (s.reagents[i] > 99) { s.reagents[i] = 99; say(g, "Dropped some!\n"); }
+  if (s.reagents[i] > 99) { s.reagents[i] = 99; say(g, M.droppedSome); }
 }
 
 /** Quest item flag in save.items: bit set -> already found. */
 function findItem(g: Game, bit: number, name: string, xp: number, extra = true) {
   const s = g.save;
-  if (s.items & bit || !extra) { say(g, NOTHING); return; }
+  if (s.items & bit || !extra) { say(g, M.nothingHere); return; }
   s.items |= bit;
   found(g);
   say(g, name);
@@ -274,7 +275,7 @@ function findItem(g: Game, bit: number, name: string, xp: number, extra = true) 
 
 function findStone(g: Game, bit: number, name: string, extra = true) {
   const s = g.save;
-  if (s.stones & bit || !extra) { say(g, NOTHING); return; }
+  if (s.stones & bit || !extra) { say(g, M.nothingHere); return; }
   s.stones |= bit;
   found(g);
   say(g, name);
@@ -285,8 +286,8 @@ const allElevated = (g: Game) => g.save.karma.every((k) => k === 0);
 
 /** Telescope 1000:8FB1: overview of any town A-P (no party marker). */
 async function telescope(g: Game) {
-  say(g, "You see a knob on the Telescope marked A-P\n");
-  const k = await askKey(g, "You Select:", "A", "P");
+  say(g, M.telescope);
+  const k = await askKey(g, M.youSelect, "A", "P");
   if (k < 0) return;
   const loc = LOCATIONS[k - 0x40];
   const { tiles } = await assets.town(loc.map!);
@@ -298,47 +299,47 @@ const RUNE_TOWNS = [5, 6, 7, 8, 9, 10, 1, 13];
 
 function findRune(g: Game) {
   const s = g.save, i = RUNE_TOWNS.indexOf(s.location);
-  if (i < 0 || s.runes & (1 << i)) { say(g, NOTHING); return; }
+  if (i < 0 || s.runes & (1 << i)) { say(g, M.nothingHere); return; }
   s.runes |= 1 << i;
   found(g);
-  say(g, `The rune of ${VIRTUES[i]}!\n`);
+  say(g, M.runeOf + VIRTUES[i] + M.runeEnd);
   addXp(s.players[0], 100);
 }
 
 /** Search table DS:2920 {location, x, y, handler}. */
 const SEARCH_TABLE: [number, number, number, (g: Game) => Promise<void> | void][] = [
-  [0, 182, 54, (g) => findReagent(g, 7, "Mandrake Root!\n")],
-  [0, 100, 165, (g) => findReagent(g, 7, "Mandrake Root!\n")],
-  [0, 46, 149, (g) => findReagent(g, 6, "Nightshade!\n")],
-  [0, 205, 44, (g) => findReagent(g, 6, "Nightshade!\n")],
-  [0, 176, 208, (g) => findItem(g, 0x10, "The Bell of Courage!\n", 400)],
-  [0, 45, 173, (g) => findItem(g, 0x100, "A Silver Horn!\n", 400)],
-  [0, 96, 215, (g) => findItem(g, 0x200, "The Wheel from the H.M.S. Cape!\n", 400)],
-  [0, 197, 245, (g) => findItem(g, 0x01, "The Skull of Mondain the Wizard!\n", 400, newMoons(g) && !(g.save.items & 2))],
-  [0, 224, 133, (g) => findStone(g, 0x80, "The Black Stone!\n", newMoons(g))],
-  [0, 64, 80, (g) => findStone(g, 0x40, "The White Stone!\n")],
-  [2, 6, 6, (g) => findItem(g, 0x08, "The Book of Truth!\n", 400)],
-  [16, 22, 1, (g) => findItem(g, 0x04, "The Candle of Love!\n", 400)],
+  [0, 182, 54, (g) => findReagent(g, 7, M.mandrake)],
+  [0, 100, 165, (g) => findReagent(g, 7, M.mandrake)],
+  [0, 46, 149, (g) => findReagent(g, 6, M.nightshade)],
+  [0, 205, 44, (g) => findReagent(g, 6, M.nightshade)],
+  [0, 176, 208, (g) => findItem(g, 0x10, M.bell, 400)],
+  [0, 45, 173, (g) => findItem(g, 0x100, M.horn, 400)],
+  [0, 96, 215, (g) => findItem(g, 0x200, M.wheel, 400)],
+  [0, 197, 245, (g) => findItem(g, 0x01, M.skull, 400, newMoons(g) && !(g.save.items & 2))],
+  [0, 224, 133, (g) => findStone(g, 0x80, M.blackStone, newMoons(g))],
+  [0, 64, 80, (g) => findStone(g, 0x40, M.whiteStone)],
+  [2, 6, 6, (g) => findItem(g, 0x08, M.book, 400)],
+  [16, 22, 1, (g) => findItem(g, 0x04, M.candle, 400)],
   [2, 22, 3, telescope],
   // Mystic armour / weapons 1000:9027 / 9076: all virtues elevated and none owned yet -> 8 of them
   [3, 22, 4, (g) => {
-    if (g.save.armour[7] !== 0 || !allElevated(g)) { say(g, NOTHING); return; }
-    g.save.armour[7] = 8; found(g); say(g, "Mystic Armour!\n"); addXp(g.save.players[0], 400);
+    if (g.save.armour[7] !== 0 || !allElevated(g)) { say(g, M.nothingHere); return; }
+    g.save.armour[7] = 8; found(g); say(g, M.mysticArmour); addXp(g.save.players[0], 400);
   }],
   [4, 8, 15, (g) => {
-    if (g.save.weapons[15] !== 0 || !allElevated(g)) { say(g, NOTHING); return; }
-    g.save.weapons[15] = 8; found(g); say(g, "Mystic Weapons!\n"); addXp(g.save.players[0], 400);
+    if (g.save.weapons[15] !== 0 || !allElevated(g)) { say(g, M.nothingHere); return; }
+    g.save.weapons[15] = 8; found(g); say(g, M.mysticWeapons); addXp(g.save.players[0], 400);
   }],
   [5, 8, 6, findRune], [6, 25, 1, findRune], [7, 30, 30, findRune], [8, 13, 6, findRune],
   [9, 28, 30, findRune], [10, 2, 29, findRune], [1, 17, 8, findRune], [13, 29, 29, findRune],
 ];
 
 async function search(g: Game) {
-  say(g, "Search...\n");
-  if (gameMode(g) < 3 && g.inBalloon && g.save.balloonState !== 0) { say(g, "Drift Only!\n"); return; }
+  say(g, M.search);
+  if (gameMode(g) < 3 && g.inBalloon && g.save.balloonState !== 0) { say(g, M.driftOnly); return; }
   const loc = g.save.location, x = g.px, y = g.py;
   const spot = SEARCH_TABLE.find(([l, sx, sy]) => l === loc && sx === x && sy === y);
-  if (!spot) { say(g, NOTHING); return; }
+  if (!spot) { say(g, M.nothingHere); return; }
   await spot[3](g);
 }
 
@@ -346,32 +347,32 @@ async function search(g: Game) {
 
 /** New order 1000:7034: the Avatar (member 1) always leads. */
 async function newOrder(g: Game) {
-  say(g, "New Order!\n");
+  say(g, M.newOrder);
   const s = g.save;
-  const a = await askPlayer(g, "Exchange #");
+  const a = await askPlayer(g, M.exchange);
   if (a < 0) return;
   if (a !== 0) {
-    const b = await askPlayer(g, "    with #");
+    const b = await askPlayer(g, M.with);
     if (b < 0) return;
     if (b !== 0) {
-      if (a === b) { say(g, "What?\n"); return; }
+      if (a === b) { say(g, M.what); return; }
       [s.players[a], s.players[b]] = [s.players[b], s.players[a]];
       return;
     }
   }
-  say(g, `${s.players[0].name}, You must lead!\n`);
+  say(g, s.players[0].name + M.mustLead);
 }
 
 /** Fire cannon 1000:73C9: broadsides only, 3 squares; monsters are sunk 1 time in 4, other objects always. */
 async function fireCannon(g: Game) {
-  say(g, "Fire ");
-  if (!g.onShip || g.map.kind !== "world") { say(g, "What?\n"); return; }
-  say(g, "Cannon!\n");
-  const d = await g.askDir("Dir: ");
+  say(g, M.fire);
+  if (!g.onShip || g.map.kind !== "world") { say(g, M.what); return; }
+  say(g, M.cannon);
+  const d = await g.askDir(M.dirCannon);
   if (!d) return;
   const [dx, dy] = DIRS[d], tr = g.save.transport;
   const broadside = dx === 0 ? tr === T.SHIP_W || tr === T.SHIP_E : tr === T.SHIP_N || tr === T.SHIP_S;
-  if (!broadside) { say(g, "Broadsides Only!\n"); return; }
+  if (!broadside) { say(g, M.broadsides); return; }
   let shot: { t: number; vx: number; vy: number } | null = null;
   const restore = addDrawHook(g, (r) => { if (shot) drawViewTile(r, shot.t, shot.vx, shot.vy); });
   try {
@@ -400,18 +401,18 @@ async function fireCannon(g: Game) {
 
 /** Ignite 1000:7525: torches only light the dungeons. */
 function igniteTorch(g: Game) {
-  say(g, "Ignite Torch!\n");
-  if (gameMode(g) !== 3) { say(g, "Not Here!\n"); return; }
-  if (g.save.torches === 0) { say(g, "None left!\n"); return; }
+  say(g, M.ignite);
+  if (gameMode(g) !== 3) { say(g, M.notHere); return; }
+  if (g.save.torches === 0) { say(g, M.noneLeft); return; }
   g.save.torches--;
   addDungeonLight(g, 100);
 }
 
 /** Peer 1000:C41D */
 async function peerGem(g: Game) {
-  say(g, "Peer at ");
-  if (g.save.gems === 0) { say(g, "What?\n"); return; }
-  say(g, "a Gem!\n");
+  say(g, M.peerAt);
+  if (g.save.gems === 0) { say(g, M.what); return; }
+  say(g, M.aGem);
   g.save.gems--;
   if (g.save.location < 0x11) await peerAtMap(g);
   else await g.dungeon.peer?.();
