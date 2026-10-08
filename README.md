@@ -118,6 +118,6 @@ extracted files, see `docs/TRANSLATING.md`), interchangeable tile packs (HD pack
 touch play (tap to walk, context menus, swipes) and an installable web app. The conversation layer is
 ready for an LLM provider (`src/game/conversation`), not enabled yet.
 
-Not done yet: Hole up and saving inside dungeons (DNGMAP.SAV); several spells and items (Blink, Gate,
-Winds, Dispell, Energy, Open, cannons, New Order, telescope, altars, Codex) were never played through —
-the debug panel prepares each of them.
+Hole up and saving inside dungeons (DNGMAP.SAV) are implemented, and the spells and items that had never been
+played (Blink, Gate, Winds, Dispell, Energy, Open, cannons, New Order, telescope, altars, Abyss, Codex) were
+play-tested against the original routines; the debug panel (F12) prepares each of them.

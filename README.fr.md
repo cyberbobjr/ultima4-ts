@@ -125,6 +125,6 @@ générés avec `tools/packs`), interface HTML (barre de commandes, inventaire, 
 débogage), jeu à la souris et au doigt (déplacement par appui, menus contextuels, glissements) et application
 web installable. La couche de conversation est prête pour un fournisseur LLM (`src/game/conversation`), non activé.
 
-Pas encore fait : Hole up et sauvegarde dans les donjons (DNGMAP.SAV) ; plusieurs sorts et objets (Blink, Gate,
-Winds, Dispell, Energy, Open, canons, New Order, télescope, autels, Codex) n’ont jamais été joués de bout en bout —
-le panneau de débogage prépare chacun d’eux.
+Hole up et la sauvegarde dans les donjons (DNGMAP.SAV) sont faits, et les sorts et objets jamais joués (Blink, Gate,
+Winds, Dispell, Energy, Open, canons, New Order, télescope, autels, Abysse, Codex) ont été testés en jeu et comparés
+aux routines d’origine ; le panneau de débogage (F12) prépare chacun d’eux.
