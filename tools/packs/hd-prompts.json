@@ -1,10 +1,242 @@
 {
   "base": "Redraw this image as a detailed, high-resolution pixel art tile for a top-down fantasy role-playing game. Keep exactly the same subject, composition, framing, silhouette, proportions and colour scheme; black areas stay pure black. Crisp hand-made pixel art with clean outlines and subtle shading, no text, no frame, no border, nothing outside the tile.",
   "frame": "Image 2 is the already redrawn first animation frame of the same subject: keep exactly its design, colours and level of detail, only change the pose to match image 1.",
-  "copy": [[96, 31], [127, 1]],
-  "groups": [[16, 4], [20, 2], [25, 2], [32, 2], [34, 2], [36, 2], [38, 2], [40, 2], [42, 2], [44, 2], [46, 2], [64, 4], [80, 2], [82, 2], [84, 2], [86, 2], [88, 2], [90, 2], [92, 2], [94, 2],
-    [128, 2], [130, 2], [132, 2], [134, 2], [136, 2], [138, 2], [140, 2], [142, 2],
-    [144, 4], [148, 4], [152, 4], [156, 4], [160, 4], [164, 4], [168, 4], [172, 4], [176, 4], [180, 4], [184, 4], [188, 4], [192, 4], [196, 4], [200, 4], [204, 4], [208, 4], [212, 4], [216, 4], [220, 4], [224, 4], [228, 4], [232, 4], [236, 4], [240, 4], [244, 4], [248, 4], [252, 4]],
+  "copy": [
+    [
+      96,
+      31
+    ],
+    [
+      127,
+      1
+    ]
+  ],
+  "groups": [
+    [
+      16,
+      4
+    ],
+    [
+      20,
+      2
+    ],
+    [
+      25,
+      2
+    ],
+    [
+      32,
+      2
+    ],
+    [
+      34,
+      2
+    ],
+    [
+      36,
+      2
+    ],
+    [
+      38,
+      2
+    ],
+    [
+      40,
+      2
+    ],
+    [
+      42,
+      2
+    ],
+    [
+      44,
+      2
+    ],
+    [
+      46,
+      2
+    ],
+    [
+      64,
+      4
+    ],
+    [
+      80,
+      2
+    ],
+    [
+      82,
+      2
+    ],
+    [
+      84,
+      2
+    ],
+    [
+      86,
+      2
+    ],
+    [
+      88,
+      2
+    ],
+    [
+      90,
+      2
+    ],
+    [
+      92,
+      2
+    ],
+    [
+      94,
+      2
+    ],
+    [
+      128,
+      2
+    ],
+    [
+      130,
+      2
+    ],
+    [
+      132,
+      2
+    ],
+    [
+      134,
+      2
+    ],
+    [
+      136,
+      2
+    ],
+    [
+      138,
+      2
+    ],
+    [
+      140,
+      2
+    ],
+    [
+      142,
+      2
+    ],
+    [
+      144,
+      4
+    ],
+    [
+      148,
+      4
+    ],
+    [
+      152,
+      4
+    ],
+    [
+      156,
+      4
+    ],
+    [
+      160,
+      4
+    ],
+    [
+      164,
+      4
+    ],
+    [
+      168,
+      4
+    ],
+    [
+      172,
+      4
+    ],
+    [
+      176,
+      4
+    ],
+    [
+      180,
+      4
+    ],
+    [
+      184,
+      4
+    ],
+    [
+      188,
+      4
+    ],
+    [
+      192,
+      4
+    ],
+    [
+      196,
+      4
+    ],
+    [
+      200,
+      4
+    ],
+    [
+      204,
+      4
+    ],
+    [
+      208,
+      4
+    ],
+    [
+      212,
+      4
+    ],
+    [
+      216,
+      4
+    ],
+    [
+      220,
+      4
+    ],
+    [
+      224,
+      4
+    ],
+    [
+      228,
+      4
+    ],
+    [
+      232,
+      4
+    ],
+    [
+      236,
+      4
+    ],
+    [
+      240,
+      4
+    ],
+    [
+      244,
+      4
+    ],
+    [
+      248,
+      4
+    ],
+    [
+      252,
+      4
+    ]
+  ],
   "tiles": {
     "0": "Deep ocean water, dark blue waves, seamless tileable texture.",
     "1": "Ocean water with waves, seamless tileable texture.",
@@ -14,20 +246,20 @@
     "5": "Scrub brush on grass, seamless tileable texture.",
     "6": "Dense forest of round trees seen from above, seamless tileable texture.",
     "7": "Rolling hills, seamless tileable texture.",
-    "8": "Grey rocky mountain peaks drawn as stacked jagged ridges, seamless tileable texture.",
+    "8": "Grey rocky mountain range: several jagged grey peaks with dark crevices, drawn like the zigzag ridges of the original, no snow, seamless tileable texture.",
     "9": "Entrance of a dungeon cave in a hill.",
     "10": "A small walled medieval town seen from the side.",
     "11": "A stone castle with towers and flags.",
     "12": "A small village of huts.",
-    "13": "Left wing of a large royal castle.",
-    "14": "Gate of a large royal castle.",
-    "15": "Right wing of a large royal castle.",
+    "13": "Left part of a long white stone castle wall with battlements and one round tower on the left end, no creature, no dragon.",
+    "14": "Central gate of a long white stone castle wall with battlements, a dark arched doorway and a red flag above it.",
+    "15": "Right part of a long white stone castle wall with battlements and one round tower on the right end, no creature, no dragon.",
     "16": "A sailing frigate seen from above, facing west.",
     "17": "A sailing frigate seen from above, facing north.",
     "18": "A sailing frigate seen from above, facing east.",
     "19": "A sailing frigate seen from above, facing south.",
-    "20": "A horse facing west.",
-    "21": "A horse facing east.",
+    "20": "A brown riding horse with saddle, side view facing left. A horse, not a deer: no antlers, no horns.",
+    "21": "A brown riding horse with saddle, side view facing right. A horse, not a deer: no antlers, no horns.",
     "22": "Dark dungeon stone floor, seamless.",
     "23": "A wooden bridge over water, east-west.",
     "24": "A hot air balloon.",
@@ -38,37 +270,105 @@
     "29": "Crumbled stone ruins.",
     "30": "A small stone shrine.",
     "31": "A small hero character with a shield and a sword, seen from the front, full body, on black background.",
-    "32": "A mage in a robe, full body.", "33": "A mage in a robe, full body.",
-    "34": "A bard with a lute, full body.", "35": "A bard with a lute, full body.",
-    "36": "A fighter in armour, full body.", "37": "A fighter in armour, full body.",
-    "38": "A druid with a staff, full body.", "39": "A druid with a staff, full body.",
-    "40": "A tinker with a hammer, full body.", "41": "A tinker with a hammer, full body.",
-    "42": "A paladin knight, full body.", "43": "A paladin knight, full body.",
-    "44": "A ranger with a bow, full body.", "45": "A ranger with a bow, full body.",
-    "46": "A shepherd with a crook, full body.", "47": "A shepherd with a crook, full body.",
+    "32": "A mage in a robe, full body.",
+    "33": "A mage in a robe, full body.",
+    "34": "A bard with a lute, full body.",
+    "35": "A bard with a lute, full body.",
+    "36": "A fighter in armour, full body.",
+    "37": "A fighter in armour, full body.",
+    "38": "A druid with a staff, full body.",
+    "39": "A druid with a staff, full body.",
+    "40": "A tinker with a hammer, full body.",
+    "41": "A tinker with a hammer, full body.",
+    "42": "A paladin knight, full body.",
+    "43": "A paladin knight, full body.",
+    "44": "A ranger with a bow, full body.",
+    "45": "A ranger with a bow, full body.",
+    "46": "A shepherd with a crook, full body.",
+    "47": "A shepherd with a crook, full body.",
     "48": "A stone column.",
-    "49": "Shoreline, water in one corner.", "50": "Shoreline, water in one corner.", "51": "Shoreline, water in one corner.", "52": "Shoreline, water in one corner.",
-    "53": "A ship mast seen from above.", "54": "A ship steering wheel.",
-    "55": "A pile of rocks.", "56": "A corpse on the ground.", "57": "Rubble and debris.",
-    "58": "A wooden door.", "59": "A locked wooden door with iron fittings.",
-    "60": "A wooden treasure chest.", "61": "A golden ankh symbol.",
-    "62": "Brick floor, seamless.", "63": "Wooden plank floor, seamless.",
-    "64": "A blue glowing moongate portal, opening.", "65": "A blue glowing moongate portal.", "66": "A blue glowing moongate portal.", "67": "A blue glowing moongate portal, fully open.",
-    "68": "A green poison gas field, seamless.", "69": "A crackling blue energy field, seamless.", "70": "A burning fire field, seamless.", "71": "A purple sleep gas field, seamless.",
-    "72": "Solid black rock.", "73": "A wall with a secret door.", "74": "A stone altar.", "75": "A campfire.", "76": "Flowing red lava, seamless.",
-    "77": "A small magic missile.", "78": "A magical flash.", "79": "A hit spark.",
-    "80": "A town guard with a spear.", "81": "A town guard with a spear.",
-    "82": "A townsperson.", "83": "A townsperson.",
-    "84": "A singing bard.", "85": "A singing bard.",
-    "86": "A jester.", "87": "A jester.",
-    "88": "A beggar in rags.", "89": "A beggar in rags.",
-    "90": "A child.", "91": "A child.",
-    "92": "A bull.", "93": "A bull.",
-    "94": "A king with a crown and royal robe.", "95": "A king with a crown and royal robe.",
-    "128": "A pirate ship.", "130": "A pirate ship.", "132": "A nixie water spirit.", "134": "A giant squid.", "136": "A sea serpent.", "138": "A seahorse.", "140": "A whirlpool.", "142": "A twister tornado.",
-    "144": "A giant rat.", "148": "A bat.", "152": "A giant spider.", "156": "A ghost.", "160": "A green slime.", "164": "A troll.", "168": "A gremlin.", "172": "A mimic treasure chest monster.",
-    "176": "A hooded reaper.", "180": "A swarm of insects.", "184": "A floating eye gazer.", "188": "A phantom.", "192": "An orc.", "196": "A skeleton.", "200": "A rogue thief.", "204": "A python snake.",
-    "208": "A two-headed ettin giant.", "212": "A headless creature.", "216": "A cyclops.", "220": "A glowing wisp.", "224": "An evil mage.", "228": "A liche.", "232": "A lava lizard.", "236": "A zorn blob creature.",
-    "240": "A red daemon.", "244": "A hydra.", "248": "A dragon.", "252": "A balron demon."
+    "49": "Shoreline, water in one corner.",
+    "50": "Shoreline, water in one corner.",
+    "51": "Shoreline, water in one corner.",
+    "52": "Shoreline, water in one corner.",
+    "53": "A ship mast seen from above.",
+    "54": "A ship steering wheel.",
+    "55": "A pile of rocks.",
+    "56": "A corpse on the ground.",
+    "57": "Rubble and debris.",
+    "58": "A wooden door.",
+    "59": "A locked wooden door with iron fittings.",
+    "60": "A wooden treasure chest.",
+    "61": "A golden ankh symbol.",
+    "62": "Brick floor, seamless.",
+    "63": "Wooden plank floor, seamless.",
+    "64": "A blue glowing moongate portal, opening.",
+    "65": "A blue glowing moongate portal.",
+    "66": "A blue glowing moongate portal.",
+    "67": "A blue glowing moongate portal, fully open.",
+    "68": "A green poison gas field, seamless.",
+    "69": "A crackling blue energy field, seamless.",
+    "70": "A burning fire field, seamless.",
+    "71": "A purple sleep gas field, seamless.",
+    "72": "Solid black rock.",
+    "73": "A wall with a secret door.",
+    "74": "A stone altar.",
+    "75": "A campfire.",
+    "76": "Flowing red lava, seamless.",
+    "77": "A small magic missile.",
+    "78": "A magical flash.",
+    "79": "A hit spark.",
+    "80": "A town guard with a spear.",
+    "81": "A town guard with a spear.",
+    "82": "A townsperson.",
+    "83": "A townsperson.",
+    "84": "A singing bard.",
+    "85": "A singing bard.",
+    "86": "A jester.",
+    "87": "A jester.",
+    "88": "A beggar in rags.",
+    "89": "A beggar in rags.",
+    "90": "A child.",
+    "91": "A child.",
+    "92": "A bull.",
+    "93": "A bull.",
+    "94": "A king with a crown and royal robe.",
+    "95": "A king with a crown and royal robe.",
+    "128": "A pirate ship.",
+    "130": "A pirate ship.",
+    "132": "A nixie water spirit.",
+    "134": "A giant squid.",
+    "136": "A sea serpent.",
+    "138": "A seahorse.",
+    "140": "A whirlpool.",
+    "142": "A twister tornado.",
+    "144": "A giant rat.",
+    "148": "A bat.",
+    "152": "A giant spider.",
+    "156": "A ghost.",
+    "160": "A green slime.",
+    "164": "A troll.",
+    "168": "A gremlin.",
+    "172": "A mimic treasure chest monster.",
+    "176": "A hooded reaper.",
+    "180": "A swarm of insects.",
+    "184": "A floating eye gazer.",
+    "188": "A phantom.",
+    "192": "An orc.",
+    "196": "A skeleton.",
+    "200": "A rogue thief.",
+    "204": "A python snake.",
+    "208": "A two-headed ettin giant.",
+    "212": "A headless creature.",
+    "216": "A cyclops.",
+    "220": "A glowing wisp.",
+    "224": "An evil mage.",
+    "228": "A liche.",
+    "232": "A lava lizard.",
+    "236": "A zorn blob creature.",
+    "240": "A red daemon.",
+    "244": "A hydra.",
+    "248": "A dragon.",
+    "252": "A balron demon."
   }
 }
