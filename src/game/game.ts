@@ -10,12 +10,18 @@ import { Input, type Key } from "./input";
 import { LocKind, LOCATIONS, locationAt, SHRINES, VIRTUES, type LocationDef } from "./locations";
 import { DIR_NAMES, DIRS, setTile, tileAt, type Dir, type MapCtx, type Npc, type TownMap, type WorldMap } from "./maps";
 import { animFrame, isOpaque, isTalkOver, slowChance, T, tileFlags, Walk } from "./tiles";
-import { ARMOURS, COMBAT_MAP_RULES, MAP_ENTRY, MAX_MP_BY_CLASS, MONSTER_SPAWN, MOON_RULES, MOONGATES, WEAPONS, WIND_RULES } from "../data/tables";
+import { ARMOURS, COMBAT_MAP_RULES, MAP_ENTRY, MAX_MP_BY_CLASS, MONSTER_SPAWN, MOON_RULES, MOONGATES, PIRATE_AMBUSH, WEAPONS, WIND_RULES } from "../data/tables";
 import { talkTo } from "./talk";
 import { creatureInfo, isNonEvil, rand8, runCombat, spawnGroup, type CombatApi, type CombatRequest, type CombatResult } from "./combat";
 import { loadArena } from "./arenas";
 import { HORN_EFFECT } from "./items";
 import { runDungeon } from "./dungeon";
+
+/**
+ * Width of the upper panels (party list, food and gold): 15 columns, as in the original, where column 39 is
+ * the right border of START.EGA around them. The console below has no border and uses all 16 columns.
+ */
+const PANEL_W = 15;
 
 export const CLASS_NAMES = ["Mage", "Bard", "Fighter", "Druid", "Tinker", "Paladin", "Ranger", "Shepherd"];
 
@@ -305,12 +311,18 @@ export class Game {
     }
     const t = tileAt(this.map, nx, ny);
     const need = this.onHorse ? Walk.Horse : Walk.Foot;
-    if (!(tileFlags(t) & need) || this.npcAt(nx, ny)) { this.con.println("Blocked!"); this.endTurn(); return; }
+    // 1000:2B19 (north only): Lord British's gate 0x0E is not in the walkable list (DS:0904) but a step north
+    // onto it skips that test; standing on it (DS:9444), north is blocked
+    const world = this.map.kind === "world";
+    const lcbGate = world && dir === "N" && t === T.LCB_ENTRANCE;
+    const onGate = world && dir === "N" && tileAt(this.map, this.px, this.py) === T.LCB_ENTRANCE;
+    if (onGate || (!lcbGate && !(tileFlags(t) & need)) || this.npcAt(nx, ny)) { this.con.println("Blocked!"); this.endTurn(); return; }
     if (this.map.kind === "world" && this.onFoot && this.objects.some((o) => o.x === (nx & 255) && o.y === (ny & 255) && o.tile >= 0x80)) {
       this.con.println("Blocked!"); this.endTurn(); return;
     }
     if (rand(1000) < slowChance(t) * 1000) { this.con.println("Slow progress!"); this.endTurn(); return; }
     this.setPos(nx, ny);
+    this.pirateAmbush(dir);
     this.endTurn();
     this.checkMoongate();
     // 1000:27D9: walking south into the approach of the Shrine of Humility summons daemons, unless the horn was blown
@@ -344,7 +356,18 @@ export class Game {
       this.con.println("Slow progress!"); this.endTurn(); return;
     }
     this.setPos(this.px + dx, this.py + dy);
+    this.pirateAmbush(dir);
     this.endTurn();
+  }
+
+  /**
+   * 1000:280A: a step east onto the mouth of the Abyss lagoon fills it with pirate ships. The original overwrites
+   * the monster slots 0-7; the port's object list has no slots: the monsters present give way to the eight ships.
+   */
+  private pirateAmbush(dir: Dir) {
+    const { trigger, ships } = PIRATE_AMBUSH;
+    if (this.map.kind !== "world" || dir !== "E" || this.px !== trigger.x || this.py !== trigger.y) return;
+    this.objects = [...this.objects.filter((o) => o.tile < 0x80), ...ships.map((p) => ({ tile: p.tile, x: p.x, y: p.y }))];
   }
 
   // ---------------------------------------------------------------- moons, moongates, wind (1000:3A80, 1000:35C7)
@@ -894,29 +917,29 @@ export class Game {
     // moons
     r.drawGlyph(0x14 + this.save.trammelPhase, 11, 0);
     r.drawGlyph(0x14 + this.save.feluccaPhase, 12, 0);
-    // party list, or an inventory panel set by shops (title on row 0, 8 rows of 16 chars)
+    // party list, or an inventory panel set by shops (title on row 0, 8 rows of PANEL_W chars)
     const sv = this.statsView;
     if (sv) {
-      r.fillRect(CON_COL * 8, 0, 16 * 8, 8, 0);
-      r.drawText(sv.title.slice(0, 16), CON_COL + ((16 - Math.min(16, sv.title.length)) >> 1), 0);
+      r.fillRect(CON_COL * 8, 0, PANEL_W * 8, 8, 0);
+      r.drawText(sv.title.slice(0, PANEL_W), CON_COL + ((PANEL_W - Math.min(PANEL_W, sv.title.length)) >> 1), 0);
     }
     for (let i = 0; i < 8; i++) {
       const row = 1 + i;
-      r.fillRect(CON_COL * 8, row * 8, 16 * 8, 8, 0);
-      if (sv) { r.drawText((sv.rows[i] ?? "").slice(0, 16), CON_COL, row); continue; }
+      r.fillRect(CON_COL * 8, row * 8, PANEL_W * 8, 8, 0);
+      if (sv) { r.drawText((sv.rows[i] ?? "").slice(0, PANEL_W), CON_COL, row); continue; }
       if (i >= this.save.members) continue;
       const p = this.save.players[i];
       r.drawText(`${i + 1}-${p.name.slice(0, 9)}`, CON_COL, row);
       const hp = String(p.hp);
-      r.drawText(hp + p.status, 40 - hp.length - 1, row);
+      r.drawText(hp + p.status, CON_COL + PANEL_W - hp.length - 1, row);
       if (i === this.activeMember) {
         // highlight the member whose turn it is (black background becomes blue)
         r.ui.globalCompositeOperation = "lighter";
-        r.fillRect(CON_COL * 8, row * 8, 16 * 8, 8, 1);
+        r.fillRect(CON_COL * 8, row * 8, PANEL_W * 8, 8, 1);
         r.ui.globalCompositeOperation = "source-over";
       }
     }
-    r.fillRect(CON_COL * 8, 10 * 8, 16 * 8, 8, 0);
+    r.fillRect(CON_COL * 8, 10 * 8, PANEL_W * 8, 8, 0);
     const pad = (n: number) => String(n).padStart(4, "0");
     r.drawText(`F:${pad(Math.floor(this.save.food / 100))}   G:${pad(this.save.gold)}`, CON_COL, 10);
     // active spell effect letter after the food counter (1000:0CF7)
